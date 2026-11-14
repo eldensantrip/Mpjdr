@@ -3660,7 +3660,7 @@ document.getElementById('ai-generate-cards').onclick = ()=>{
 const EMBEDDED_FIREBASE_CONFIG = null; // ex. { apiKey:"...", authDomain:"...", projectId:"...", appId:"..." }
 (function(){
   const FB='https://www.gstatic.com/firebasejs/10.14.1/', CFG_KEY='heros_firebase_config';
-  const RULES="rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /users/{uid}/{document=**} {\n      allow read, write: if request.auth != null\n        && request.auth.uid == uid\n        && request.auth.token.email == \"ton.adresse@gmail.com\" // ← remplace par TON adresse\n        && request.auth.token.email_verified == true;\n    }\n  }\n}";
+  const RULES="rules_version = '2';\nservice cloud.firestore {\n  match /databases/{database}/documents {\n    match /users/{uid}/{document=**} {\n      allow read, write: if request.auth != null\n        && request.auth.uid == uid\n        && request.auth.token.email == \"eldensantrip@gmail.com\" // ← remplace par TON adresse\n        && request.auth.token.email_verified == true;\n    }\n  }\n}";
   let fb=null, uid=null, unsubs=[], sigs=new Map(), imgUp=new Set(), ready=false, timer=null, busy=false, again=false, metaTs=0, metaSig='', msg='';
   const origPersist=persistState;
   persistState=async function(){ await origPersist(); schedule(); };
