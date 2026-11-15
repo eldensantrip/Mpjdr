@@ -673,6 +673,7 @@
   <button class="ghost" id="btn-stat-theme">🎨 Couleurs des caractéristiques (toutes les cartes)</button> ·
   <button class="ghost" id="btn-cloud">☁️ Synchro</button> ·
   <button class="ghost" id="btn-export">Exporter (sauvegarde)</button> ·
+  <button class="ghost" id="btn-export-txt" title="Fichier texte léger de toutes les cartes, pratique pour comparer">Exporter en texte (.txt)</button> ·
   <button class="ghost" id="btn-import">Importer</button> ·
   <button class="ghost" id="btn-seed">Charger des exemples</button> ·
   <button class="ghost" id="btn-ai-generate">🤖 Générer avec une IA</button> ·
@@ -3355,6 +3356,67 @@ async function exportCardsPng(entries, btn){
 document.getElementById('btn-export-png').onclick = function(){
   const entries = selectionByCategory().flatMap(g=>g.items.map(item=>({cat:g.cat,item})));
   exportCardsPng(entries, this);
+};
+
+/* ==================== EXPORT TEXTE (.txt) : toutes les cartes, en format léger pour comparer ==================== */
+function buildTextExport(){
+  const SHORT = { intelligence:'INT', sens:'SEN', vitesse:'VIT', force:'FOR' };
+  const sgn = n => (n>0?'+':'')+n;
+  const abilityMods = a => [ `${STAT_LABELS[a.stat]} ${sgn(a.modifier)}`, a.stat2 ? `${STAT_LABELS[a.stat2]} ${sgn(a.modifier2)}` : '' ].filter(Boolean).join(' / ');
+  const statsLine = st => ['intelligence','sens','vitesse','force'].map(k=>`${SHORT[k]} ${Number(st?.[k])||0}`).join(' · ');
+  const text = (label, v) => { v = String(v ?? '').trim(); if(!v) return ''; const lines = v.split(/\r?\n/); return `${label} : ${lines[0]}` + lines.slice(1).map(l=>'\n    '+l).join(''); };
+  const byName = (a,b) => String(a.name||'').localeCompare(String(b.name||''),'fr',{sensitivity:'base'});
+  const bar = '='.repeat(60), thin = '-'.repeat(60);
+  const out = []; let total = 0;
+  const flat = ['abilities','objects','traps','places'];
+  Object.keys(CATEGORIES).forEach(cat=>{
+    const items = (state[cat]||[]).slice().sort(byName);
+    if(!items.length) return;
+    total += items.length;
+    const meta = CATEGORIES[cat];
+    out.push(bar, `${meta.label.toUpperCase()} (${items.length})`, bar);
+    items.forEach(item=>{
+      const lines = [`[${meta.label}] ${item.name || '(sans nom)'}`];
+      const folder = (state.folders?.[cat]||[]).find(f=>f.id===item.folderId);
+      if(folder) lines.push(`Dossier : ${folder.name}`);
+      if(cat==='characters'){
+        lines.push(text('Classe', item.className), `Points de héros : ${Number(item.heroPoints)||0}/4`, `Caractéristiques : ${statsLine(item.stats)}`);
+      }
+      if(cat==='companions' || cat==='creatures'){
+        lines.push(text('Type', item.type));
+        if(cat==='creatures') lines.push(`Niveau de danger : ${Number(item.dangerLevel)||0}/5`);
+        lines.push(`Caractéristiques : ${statsLine(item.stats)}`);
+      }
+      if(cat==='objects') lines.push(`Rareté : ${(RARITIES[normalizeRarity(item.rarity)]||{}).label||''}`);
+      if(flat.includes(cat)){
+        const a = normalizeAbility(item);
+        lines.push(`Caractéristiques : ${abilityMods(a)}`);
+        if(cat==='abilities' || cat==='objects') lines.push(`Utilisable en défense : ${a.defensive?'oui':'non'}`);
+        lines.push(text('Effet', a.effect || item.description));
+      } else {
+        lines.push(text('Description', item.description));
+        (Array.isArray(item.abilities)?item.abilities:[]).slice(0,3).map(normalizeAbility).forEach((a,i)=>{
+          if(!a.title && !a.effect && !a.modifier && !a.stat2) return;
+          lines.push(`Capacité ${i+1} : ${a.title||'(sans titre)'} — ${abilityMods(a)}${a.defensive?' — défense':''}`);
+          const eff = text('    Effet', a.effect); if(eff) lines.push(eff);
+        });
+      }
+      out.push(lines.filter(Boolean).join('\n'), thin);
+    });
+    out.push('');
+  });
+  const d = new Date(), pad = n=>String(n).padStart(2,'0');
+  const head = [`CRÉATEUR DE HÉROS — extraction du ${pad(d.getDate())}/${pad(d.getMonth()+1)}/${d.getFullYear()}`, `${total} carte${total>1?'s':''}`, ''];
+  return head.concat(out).join('\n').replace(/\n{3,}/g,'\n\n').trimEnd()+'\n';
+}
+document.getElementById('btn-export-txt').onclick = ()=>{
+  const d = new Date(), pad = n=>String(n).padStart(2,'0');
+  const blob = new Blob(['\uFEFF'+buildTextExport()], {type:'text/plain;charset=utf-8'});
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = `heros-createur-cartes-${d.getFullYear()}-${pad(d.getMonth()+1)}-${pad(d.getDate())}.txt`;
+  document.body.appendChild(a); a.click(); a.remove();
+  setTimeout(()=>URL.revokeObjectURL(a.href),2000);
 };
 
 /* ==================== EXPORT / IMPORT / SEED / CLEAR ==================== */
