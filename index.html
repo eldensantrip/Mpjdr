@@ -1872,9 +1872,8 @@ function wireAvatarPanZoom(item){
   let saveTimer = null;
   const persist = ()=>{
     clearTimeout(saveTimer);
+    { const v0 = sanitizeAvatarView({ ...view, ar }); if(v0) item.avatarView = v0; else delete item.avatarView; }
     saveTimer = setTimeout(async ()=>{
-      const v = sanitizeAvatarView({ ...view, ar });
-      if(v) item.avatarView = v; else delete item.avatarView;
       try{ await saveState(); }catch(e){ console.warn('Sauvegarde du cadrage impossible', e); }
     }, 250);
   };
@@ -3836,7 +3835,13 @@ const EMBEDDED_FIREBASE_CONFIG = {
   document.addEventListener('dragstart',e=>{ if(isRO()) e.preventDefault(); },true);
   ['pointerdown','wheel','dblclick'].forEach(ev=>document.getElementById('grid').addEventListener(ev,e=>{ if(isRO()&&e.target.closest&&e.target.closest('.p-frame.can-pan')) e.stopPropagation(); },true));
   const origPersist=persistState;
-  persistState=async function(){ if(isRO()) return; await origPersist(); schedule(); };
+  persistState=async function(){
+    if(isRO()) return;
+    /* Chaque carte modifiée reçoit tout de suite son horodatage : au rechargement, une modif locale pas encore envoyée
+       l'emporte sur une version plus ancienne du cloud, au lieu d'être écrasée par elle. */
+    if(ready){ const now=Date.now(); for(const cat of ALL_ITEM_CATS) for(const it of state[cat]){ if(sigs.get(cat+'__'+it.id)!==sig(it)) it.updatedAt=now; } }
+    await origPersist(); schedule();
+  };
   const META_KEYS=['themes','statTheme','printPrefs','settings','statIcons','folders'];
   const strip=it=>{ const c={...it}; delete c.updatedAt; delete c._pendingAvatarBlob; delete c.avatarImg; return c; };
   const sig=it=>JSON.stringify(strip(it));
@@ -3983,6 +3988,10 @@ const EMBEDDED_FIREBASE_CONFIG = {
     const iv=setInterval(act,1500); act();
   }
   document.getElementById('btn-cloud').onclick=openDialog;
+  /* Au rechargement / changement d'onglet, on n'attend pas le délai de 0,8 s : l'envoi part tout de suite. */
+  const flushNow=()=>{ if(ready&&uid){ clearTimeout(timer); push(); } };
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flushNow(); });
+  window.addEventListener('pagehide',flushNow);
   applyRO();
   start();
 })();
