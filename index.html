@@ -993,7 +993,8 @@ function normalizeAbility(a){
     modifier2,
     title:String(a.title ?? '').trim(),
     effect:String(a.effect ?? '').trim(),
-    defensive: a.defensive===true || a.defensive==='on' || a.defensive==='true'
+    defensive: a.defensive===true || a.defensive==='on' || a.defensive==='true',
+    cooldown: String(a.cooldown ?? '').trim().slice(0,6)
   };
 }
 function normalizeState(s){
@@ -2042,6 +2043,8 @@ function buildAbilityFields(item){
         <div class="ability-meta">${hybridStatFieldsHtml('ability-'+i, a)}</div>
         <label>Titre</label>
         <input type="text" name="ability-${i}-title" value="${escapeHtml(a.title)}" maxlength="50" placeholder="Ex. Bond fulgurant">
+        ${activeTab==='creatures' ? `<label>⏱ Temps de rechargement (en tours)</label>
+        <input type="text" name="ability-${i}-cooldown" value="${escapeHtml(a.cooldown||'')}" maxlength="6" placeholder="Ex. 3 (vide = aucun)" style="max-width:150px">` : ''}
         <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-defensive" ${a.defensive?'checked':''}> 🛡 Utilisable en défense</label>
         <label>Effets</label>
         <textarea name="ability-${i}-effect" maxlength="260" rows="3" placeholder="Décris les effets de la capacité.">${escapeHtml(a.effect)}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div>
@@ -2298,7 +2301,7 @@ formEl.addEventListener('submit',async(e)=>{
   if(activeTab==='companions'||activeTab==='creatures'){
     item.type=fd.get('type')||'';
     item.stats=Object.fromEntries(Object.keys(STAT_LABELS).map(k=>[k,Number(fd.get('stat-'+k))||0]));
-    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),stat2:fd.get(`ability-${i}-stat2`),modifier2:Number(fd.get(`ability-${i}-modifier2`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:!!fd.get(`ability-${i}-defensive`)})).filter(a=>a.title||a.effect);
+    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),stat2:fd.get(`ability-${i}-stat2`),modifier2:Number(fd.get(`ability-${i}-modifier2`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:!!fd.get(`ability-${i}-defensive`),cooldown:activeTab==='creatures'?fd.get(`ability-${i}-cooldown`):''})).filter(a=>a.title||a.effect);
     item.description=(fd.get('description')||'').trim();
     if(activeTab==='creatures') item.dangerLevel=currentStars.dangerLevel||0;
   }
@@ -3017,6 +3020,11 @@ function effectColorRgb(theme, stat, amount){
   return mixWithWhite(hexToRgb(statColorHex(theme, stat)), amount!=null ? amount : .55);
 }
 /* Capacité utilisable en défense : filigrane (nuance bleutée + bouclier) à l'intérieur gauche du cadre de la capacité. */
+/* Minuteur de rechargement d'une capacité de créature : petit chronomètre + valeur, à droite du titre (taille = police). */
+function cooldownHtml(x){
+  const v = String((x && x.cooldown) || '').trim(); if(!v) return '';
+  return `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="float:right;display:inline-flex;align-items:center;gap:.2em;margin-left:1mm;font-weight:700;line-height:1;position:relative;top:.1em;"><svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block;flex:none" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
+}
 function defMarkHtml(a){ return (a && a.defensive) ? '<i class="p-def-mark" aria-hidden="true"></i><i class="p-def-shield" aria-hidden="true"></i>' : ''; }
 function abilityHeadingStyle(cat, a){
   // Bandeau légèrement plus foncé (même teinte) derrière le titre + bulles, pour le distinguer du texte de l'effet.
@@ -3215,7 +3223,7 @@ function printCard(item, blank){
       ${printFrameHtml(item, blank)}
       <div class="p-banner" style="${bannerStyle}">${escapeHtml(item.name||'')}</div>
       <div class="p-four-stats">${Object.keys(STAT_LABELS).map(k=>`<div class="p-four-stat" style="${statCellStyle(activeTab,k)}"><b>${STAT_SHORT[k]}</b>${stats[k]??0}</div>`).join("")}</div>
-      ${!blank && item.abilities?.length ? `<div class="p-abilities">${item.abilities.slice(0,3).map(a=>{const x=normalizeAbility(a); const titleSuffix=a?.title||x.title?' — '+escapeHtml(a?.title||x.title):''; const label=modifierLabelHtmlMulti(th, x, titleSuffix); return `<div class="p-ability${x.defensive?' is-defensive':''}" style="${abilityCellStyle(activeTab,x)}">${defMarkHtml(x)}<b style="${abilityHeadingStyle(activeTab,x)}">${label}</b>${richTextHtml(a?.effect||x.effect||'',th)}</div>`}).join("")}</div>` : ''}
+      ${!blank && item.abilities?.length ? `<div class="p-abilities">${item.abilities.slice(0,3).map(a=>{const x=normalizeAbility(a); const titleSuffix=a?.title||x.title?' — '+escapeHtml(a?.title||x.title):''; const label=modifierLabelHtmlMulti(th, x, titleSuffix); return `<div class="p-ability${x.defensive?' is-defensive':''}" style="${abilityCellStyle(activeTab,x)}">${defMarkHtml(x)}<b style="${abilityHeadingStyle(activeTab,x)}">${cooldownHtml(x)}${label}</b>${richTextHtml(a?.effect||x.effect||'',th)}</div>`}).join("")}</div>` : ''}
       ${!blank && item.description ? `<div class="p-creature-desc">${richTextHtml(item.description,th)}</div>` : ''}
     </div>`;
   }
@@ -3400,7 +3408,7 @@ function buildTextExport(){
         lines.push(text('Description', item.description));
         (Array.isArray(item.abilities)?item.abilities:[]).slice(0,3).map(normalizeAbility).forEach((a,i)=>{
           if(!a.title && !a.effect && !a.modifier && !a.stat2) return;
-          lines.push(`Capacité ${i+1} : ${a.title||'(sans titre)'} — ${abilityMods(a)}${a.defensive?' — défense':''}`);
+          lines.push(`Capacité ${i+1} : ${a.title||'(sans titre)'} — ${abilityMods(a)}${a.defensive?' — défense':''}${a.cooldown?` — rechargement ${a.cooldown}`:''}`);
           const eff = text('    Effet', a.effect); if(eff) lines.push(eff);
         });
       }
