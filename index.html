@@ -211,7 +211,7 @@
   .screen-print-card .p-topline{ display:flex; align-items:center; justify-content:space-between; width:100%; margin-bottom:1.2mm; min-height:3.2mm; }
   .screen-print-card .p-section-title{
     width:100%; text-align:left; font-family:Georgia,'Times New Roman',serif; font-weight:700;
-    font-size:8pt; line-height:1; margin:.2mm 0 1.2mm; color:var(--ink);
+    font-size:7.4pt; line-height:1; margin:.2mm 0 1.2mm; color:var(--ink);
   }
   .screen-print-card .p-frame{ position:relative; width:100%; height:27mm; flex:none; margin:.5mm 0 .8mm; }
   .screen-print-card .p-frame-fill{ position:absolute; inset:0; z-index:0; border-radius:2.4mm; overflow:hidden; }
@@ -224,11 +224,11 @@
   .screen-print-card .p-corner.c-tr{ top:-1.4mm; right:-1.4mm; transform:rotate(90deg); }
   .screen-print-card .p-corner.c-br{ bottom:-1.4mm; right:-1.4mm; transform:rotate(180deg); }
   .screen-print-card .p-corner.c-bl{ bottom:-1.4mm; left:-1.4mm; transform:rotate(270deg); }
-  .screen-print-card .p-banner{ position:relative; width:86%; text-align:center; border:1.2pt solid var(--ink); border-radius:1.5mm; padding:.45mm 3mm; box-sizing:border-box; font-family:'Trebuchet MS',Arial,sans-serif; font-weight:700; font-size:7.2pt; background:var(--gold); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:none; }
+  .screen-print-card .p-banner{ position:relative; width:86%; text-align:center; border:1.2pt solid var(--ink); border-radius:1.5mm; padding:.45mm 3mm; box-sizing:border-box; font-family:'Trebuchet MS',Arial,sans-serif; font-weight:700; font-size:6.9pt; background:var(--gold); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:none; }
   .screen-print-card .p-banner::before,.screen-print-card .p-banner::after{ content:""; position:absolute; top:50%; transform:translateY(-50%); width:0;height:0; border-top:1.8mm solid transparent; border-bottom:1.8mm solid transparent; }
   .screen-print-card .p-banner::before{ left:-2.4mm; border-right:1.8mm solid var(--ink); }
   .screen-print-card .p-banner::after{ right:-2.4mm; border-left:1.8mm solid var(--ink); }
-  .screen-print-card .p-desc{ font-size:5.8pt; text-align:center; line-height:1.24; margin-top:1.2mm; max-height:23mm; overflow:hidden; flex:none; }
+  .screen-print-card .p-desc{ font-size:5.1pt; text-align:center; line-height:1.24; margin-top:1.2mm; max-height:23mm; overflow:hidden; flex:none; }
   .screen-print-card .p-four-stats,.screen-print-card .p-stats{ display:flex; gap:.6mm; width:100%; margin-top:.6mm; flex:none; }
   .screen-print-card .p-four-stat,.screen-print-card .p-stat{ flex:1; display:flex; align-items:center; justify-content:center; gap:.55mm; border:.7pt solid var(--ink); border-radius:1mm; padding:.45mm .25mm; font-size:5.5pt; line-height:1; }
   .screen-print-card .p-four-stat b,.screen-print-card .p-stat b{ display:inline; font-size:5.5pt; }
@@ -238,7 +238,7 @@
   .screen-print-card .p-ability{ border:.7pt solid var(--ink); border-radius:1mm; padding:.7mm 1mm; margin-bottom:.7mm; }
   .screen-print-card .p-ability b{ text-shadow:0 .4px .4px rgba(255,255,255,.55); display:block; font-size:6.6pt; line-height:1.05; margin-bottom:.35mm; }
   .screen-print-card .p-ability span{ font-size:5.1pt; }
-  .screen-print-card .p-creature-desc{ font-size:5.9pt; line-height:1.18; max-height:12mm; flex:0 1 auto; min-height:0; overflow:hidden; margin-top:0; }
+  .screen-print-card .p-creature-desc{ font-size:5.1pt; line-height:1.18; max-height:12mm; flex:0 1 auto; min-height:0; overflow:hidden; margin-top:0; }
   .screen-print-card .screen-actions{ position:absolute; left:50%; bottom:-36px; transform:translateX(-50%); display:flex; gap:5px; z-index:10; }
   .screen-print-card .screen-actions button{ padding:5px 8px; font-size:12px; }
   .screen-print-card .screen-select{ position:absolute; top:7px; left:7px; z-index:12; }
@@ -483,7 +483,7 @@
     .p-rank-stars{ color:#FFD400; }
 
     .p-frame{ position:relative; width:100%; height:31mm; flex:none; margin:0.5mm 0 0.8mm; }
-    .p-section-title{ width:100%; text-align:left; font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:8pt; line-height:1; margin:.2mm 0 1.2mm; color:#2E2115; }
+    .p-section-title{ width:100%; text-align:left; font-family:Georgia,'Times New Roman',serif; font-weight:700; font-size:7.4pt; line-height:1; margin:.2mm 0 1.2mm; color:#2E2115; }
     .ability-print-card .p-frame,
     .char-print-card .p-frame{ height:52.4mm; margin-top:.5mm; }
     .creature-print-card .p-frame{ height:28mm; }
@@ -501,7 +501,7 @@
 
     .p-banner{
       position:relative; width:86%; text-align:center; border:1.2pt solid #2E2115; border-radius:1.5mm;
-      padding:0.45mm 3mm; font-family:'Trebuchet MS',Arial,sans-serif; font-weight:700; font-size:7.2pt; background:#D9A441;
+      padding:0.45mm 3mm; font-family:'Trebuchet MS',Arial,sans-serif; font-weight:700; font-size:6.9pt; background:#D9A441;
       overflow:hidden; text-overflow:ellipsis; white-space:nowrap;
     }
     .p-banner::before, .p-banner::after{
@@ -510,14 +510,14 @@
     }
     .p-banner::before{ left:-2.4mm; border-right:1.8mm solid #2E2115; }
     .p-banner::after{ right:-2.4mm; border-left:1.8mm solid #2E2115; }
-    .p-desc{ font-size:5.8pt; text-align:center; line-height:1.24; margin-top:1.2mm; max-height:23mm; overflow:hidden; }
+    .p-desc{ font-size:5.1pt; text-align:center; line-height:1.24; margin-top:1.2mm; max-height:23mm; overflow:hidden; }
     .p-abilities{ width:100%; font-size:5.1pt; line-height:1.16; margin-top:.7mm; flex:0 0 auto; overflow:visible; }
     .p-ability.is-defensive{ position:relative; isolation:isolate; }
     .p-def-mark{ position:absolute; inset:0; z-index:-1; pointer-events:none; border-radius:inherit; background-image:linear-gradient(90deg, rgba(40,86,150,.24) 0%, rgba(40,86,150,.11) 40%, rgba(40,86,150,0) 75%); background-repeat:no-repeat; background-size:100% 100%; }
     .p-ability{ border:0.7pt solid #2E2115; border-radius:1mm; padding:.7mm 1mm; margin-bottom:.7mm; }
     .p-ability b{ text-shadow:0 .4px .4px rgba(255,253,248,.55); display:block; font-size:6.6pt; line-height:1.05; margin-bottom:.35mm; }
     .p-ability span{ font-size:5.1pt; }
-    .p-creature-desc{ font-size:5.9pt; line-height:1.18; max-height:12mm; flex:0 1 auto; min-height:0; overflow:hidden; margin-top:0; }
+    .p-creature-desc{ font-size:5.1pt; line-height:1.18; max-height:12mm; flex:0 1 auto; min-height:0; overflow:hidden; margin-top:0; }
     .p-four-stats,.p-stats{ display:flex; gap:.6mm; width:100%; margin-top:.6mm; }
     .p-four-stat,.p-stat{ flex:1; display:flex; align-items:center; justify-content:center; gap:.55mm; border:.7pt solid #2E2115; border-radius:1mm; padding:.45mm .25mm; font-size:5.5pt; line-height:1; }
     .p-four-stat b,.p-stat b{ display:inline; font-size:5.5pt; font-family:'Trebuchet MS',Arial,sans-serif; }
@@ -535,21 +535,21 @@
     padding:.35mm 2.5mm !important;
   }
   .screen-print-card.ability-preview .ability-single{
-    font-size:5.9pt !important;
+    font-size:5.1pt !important;
     line-height:1.16 !important;
     padding:1.15mm 1.25mm !important;
     min-height:0 !important;
   }
   .screen-print-card.ability-preview .ability-single .ability-card-heading{
     display:block !important;
-    font-size:7.6pt !important;
+    font-size:6.6pt !important;
     line-height:1.08 !important;
     font-weight:800 !important;
     margin:0 0 .55mm !important;
   }
   .screen-print-card.ability-preview .ability-single .ability-card-effect{
     display:block !important;
-    font-size:5.9pt !important;
+    font-size:5.1pt !important;
     line-height:1.18 !important;
   }
 
@@ -564,7 +564,7 @@
       padding:.35mm 2.5mm !important;
     }
     .ability-print-card .ability-single{
-      font-size:5.9pt !important;
+      font-size:5.1pt !important;
       line-height:1.16 !important;
       margin-top:.8mm !important;
       padding:1.15mm 1.25mm !important;
@@ -572,14 +572,14 @@
     }
     .ability-print-card .ability-single .ability-card-heading{
       display:block !important;
-      font-size:7.6pt !important;
+      font-size:6.6pt !important;
       line-height:1.08 !important;
       font-weight:800 !important;
       margin:0 0 .55mm !important;
     }
     .ability-print-card .ability-single .ability-card-effect{
       display:block !important;
-      font-size:5.9pt !important;
+      font-size:5.1pt !important;
       line-height:1.18 !important;
     }
   }
