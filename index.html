@@ -3023,7 +3023,7 @@ function effectColorRgb(theme, stat, amount){
 /* Minuteur de rechargement d'une capacité de créature : petit chronomètre + valeur, à droite du titre (taille = police). */
 function cooldownHtml(x){
   const v = String((x && x.cooldown) || '').trim(); if(!v) return '';
-  return `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="float:right;display:inline-flex;align-items:center;gap:.2em;margin-left:1mm;font-weight:700;line-height:1;position:relative;top:.1em;"><svg viewBox="0 0 24 24" width="1em" height="1em" style="display:block;flex:none" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
+  return `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="margin-left:1.3mm;font-weight:700;white-space:nowrap;"><svg viewBox="0 0 24 24" width="1em" height="1em" style="display:inline-block;vertical-align:-.16em;margin-right:.18em" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
 }
 function defMarkHtml(a){ return (a && a.defensive) ? '<i class="p-def-mark" aria-hidden="true"></i><i class="p-def-shield" aria-hidden="true"></i>' : ''; }
 function abilityHeadingStyle(cat, a){
@@ -3223,7 +3223,7 @@ function printCard(item, blank){
       ${printFrameHtml(item, blank)}
       <div class="p-banner" style="${bannerStyle}">${escapeHtml(item.name||'')}</div>
       <div class="p-four-stats">${Object.keys(STAT_LABELS).map(k=>`<div class="p-four-stat" style="${statCellStyle(activeTab,k)}"><b>${STAT_SHORT[k]}</b>${stats[k]??0}</div>`).join("")}</div>
-      ${!blank && item.abilities?.length ? `<div class="p-abilities">${item.abilities.slice(0,3).map(a=>{const x=normalizeAbility(a); const titleSuffix=a?.title||x.title?' — '+escapeHtml(a?.title||x.title):''; const label=modifierLabelHtmlMulti(th, x, titleSuffix); return `<div class="p-ability${x.defensive?' is-defensive':''}" style="${abilityCellStyle(activeTab,x)}">${defMarkHtml(x)}<b style="${abilityHeadingStyle(activeTab,x)}">${cooldownHtml(x)}${label}</b>${richTextHtml(a?.effect||x.effect||'',th)}</div>`}).join("")}</div>` : ''}
+      ${!blank && item.abilities?.length ? `<div class="p-abilities">${item.abilities.slice(0,3).map(a=>{const x=normalizeAbility(a); const titleSuffix=(a?.title||x.title?' — '+escapeHtml(a?.title||x.title):'')+cooldownHtml(x); const label=modifierLabelHtmlMulti(th, x, titleSuffix); return `<div class="p-ability${x.defensive?' is-defensive':''}" style="${abilityCellStyle(activeTab,x)}">${defMarkHtml(x)}<b style="${abilityHeadingStyle(activeTab,x)}">${label}</b>${richTextHtml(a?.effect||x.effect||'',th)}</div>`}).join("")}</div>` : ''}
       ${!blank && item.description ? `<div class="p-creature-desc">${richTextHtml(item.description,th)}</div>` : ''}
     </div>`;
   }
