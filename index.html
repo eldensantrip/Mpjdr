@@ -3065,11 +3065,12 @@ const TIMER_DIGITS = {
    - cooldown : chronomètre en contour (rechargement en tours) */
 function timerSymbolSvg(kind, n){
   const digit = TIMER_DIGITS[n]; if(!digit) return '';
-  const open = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:inline-block;vertical-align:-.16em" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  const open = '<svg viewBox="0 0 24 24" width="1.45em" height="1.45em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  const dg = (c,w)=>'<path d="'+digit+'" transform="translate(12 14) scale(1.2) translate(-12 -14)" stroke="'+c+'" stroke-width="'+w+'"/>';
   const tabs = '<path d="M9.5 2.5h5M12 2.5V5.4M18.5 6.5l1.6-1.6"/>';
-  if(kind==='once')  return open+'<circle cx="12" cy="14" r="8.6" fill="currentColor"/>'+tabs+'<path d="'+digit+'" stroke="#fff" stroke-width="2.3"/></svg>';
-  if(kind==='total') return open+'<path d="M12 5.6 19.3 9.8V18.2L12 22.4 4.7 18.2V9.8Z" fill="currentColor" stroke-width="1.8"/><path d="'+digit+'" stroke="#fff" stroke-width="2.3"/></svg>';
-  return open+'<circle cx="12" cy="14" r="8"/>'+tabs+'<path d="'+digit+'" stroke-width="2.1"/></svg>';
+  if(kind==='once')  return open+'<circle cx="12" cy="14" r="8.6" fill="currentColor"/>'+tabs+dg('#fff',2)+'</svg>';
+  if(kind==='total') return open+'<path d="M12 5.6 19.3 9.8V18.2L12 22.4 4.7 18.2V9.8Z" fill="currentColor" stroke-width="1.8"/>'+dg('#fff',2)+'</svg>';
+  return open+'<circle cx="12" cy="14" r="8"/>'+tabs+dg('currentColor',1.9)+'</svg>';
 }
 /* Symboles de limite d'usage d'une capacité (usages par rencontre, usages définitifs, rechargement), à droite du titre (taille = police). */
 function cooldownHtml(x){
@@ -3077,19 +3078,20 @@ function cooldownHtml(x){
   const v = String(x.cooldown || '').trim();
   const sw = 'margin-left:1.3mm;font-weight:700;white-space:nowrap;';
   const ico = 'display:inline-block;vertical-align:-.16em;margin-right:.18em';
+  const sws = sw + 'font-size:6.6pt;';
   let h = '';
   if(x.once>0){
     const n = Math.min(9, x.once);
     const tip = n===1 ? 'Usage unique : une seule fois par rencontre' : `Usage limité : ${n} fois maximum par rencontre`;
-    h += `<span class="p-once" title="${tip}" style="${sw}">${timerSymbolSvg('once', n)}</span>`;
+    h += `<span class="p-once" title="${tip}" style="${sws}">${timerSymbolSvg('once', n)}</span>`;
   }
   if(x.total>0){
     const n = Math.min(9, x.total);
     const tip = n===1 ? 'Usage définitif : une seule utilisation au total' : `Usage définitif : ${n} utilisations au total`;
-    h += `<span class="p-total" title="${tip}" style="${sw}">${timerSymbolSvg('total', n)}</span>`;
+    h += `<span class="p-total" title="${tip}" style="${sws}">${timerSymbolSvg('total', n)}</span>`;
   }
   if(/^[1-9]$/.test(v)){
-    h += `<span class="p-cooldown" title="Rechargement : ${v} tour${v==='1'?'':'s'}" style="${sw}">${timerSymbolSvg('cooldown', Number(v))}</span>`;
+    h += `<span class="p-cooldown" title="Rechargement : ${v} tour${v==='1'?'':'s'}" style="${sws}">${timerSymbolSvg('cooldown', Number(v))}</span>`;
   } else if(v){
     h += `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="${sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
   }
