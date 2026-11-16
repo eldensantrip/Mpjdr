@@ -995,7 +995,7 @@ function normalizeAbility(a){
     effect:String(a.effect ?? '').trim(),
     defensive: a.defensive===true || a.defensive==='on' || a.defensive==='true',
     cooldown: String(a.cooldown ?? '').trim().slice(0,6),
-    once: a.once===true || a.once==='on' || a.once==='true'
+    once: (a.once===true || a.once==='on' || a.once==='true') ? 1 : Math.max(0, Math.min(3, Math.floor(Number(a.once)) || 0))
   };
 }
 function normalizeState(s){
@@ -2046,7 +2046,9 @@ function buildAbilityFields(item){
         <input type="text" name="ability-${i}-title" value="${escapeHtml(a.title)}" maxlength="50" placeholder="Ex. Bond fulgurant">
         ${activeTab==='creatures' ? `<label>⏱ Temps de rechargement (en tours)</label>
         <input type="text" name="ability-${i}-cooldown" value="${escapeHtml(a.cooldown||'')}" maxlength="6" placeholder="Ex. 3 (vide = aucun)" style="max-width:150px">
-        <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-once" ${a.once?'checked':''}> Usage unique : une seule fois par rencontre</label>` : ''}
+        <label style="margin-top:6px;">Usages par rencontre</label>
+        <select name="ability-${i}-once" style="max-width:220px">${[[0,'Illimité (aucun symbole)'],[1,'1 fois (usage unique)'],[2,'2 fois maximum'],[3,'3 fois maximum']].map(([k,l])=>`<option value="${k}" ${Number(a.once)===k?'selected':''}>${l}</option>`).join('')}</select>
+` : ''}
         <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-defensive" ${a.defensive?'checked':''}> 🛡 Utilisable en défense</label>
         <label>Effets</label>
         <textarea name="ability-${i}-effect" maxlength="260" rows="3" placeholder="Décris les effets de la capacité.">${escapeHtml(a.effect)}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div>
@@ -2303,7 +2305,7 @@ formEl.addEventListener('submit',async(e)=>{
   if(activeTab==='companions'||activeTab==='creatures'){
     item.type=fd.get('type')||'';
     item.stats=Object.fromEntries(Object.keys(STAT_LABELS).map(k=>[k,Number(fd.get('stat-'+k))||0]));
-    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),stat2:fd.get(`ability-${i}-stat2`),modifier2:Number(fd.get(`ability-${i}-modifier2`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:!!fd.get(`ability-${i}-defensive`),cooldown:activeTab==='creatures'?fd.get(`ability-${i}-cooldown`):'',once:activeTab==='creatures'&&!!fd.get(`ability-${i}-once`)})).filter(a=>a.title||a.effect);
+    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),stat2:fd.get(`ability-${i}-stat2`),modifier2:Number(fd.get(`ability-${i}-modifier2`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:!!fd.get(`ability-${i}-defensive`),cooldown:activeTab==='creatures'?fd.get(`ability-${i}-cooldown`):'',once:activeTab==='creatures'?(Number(fd.get(`ability-${i}-once`))||0):0})).filter(a=>a.title||a.effect);
     item.description=(fd.get('description')||'').trim();
     if(activeTab==='creatures') item.dangerLevel=currentStars.dangerLevel||0;
   }
@@ -3029,7 +3031,12 @@ function cooldownHtml(x){
   const sw = 'margin-left:1.3mm;font-weight:700;white-space:nowrap;';
   const ico = 'display:inline-block;vertical-align:-.16em;margin-right:.18em';
   let h = '';
-  if(x.once) h += `<span class="p-once" title="Usage unique : une seule fois par rencontre" style="${sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico};margin-right:0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="14" r="8.6" fill="currentColor"/><path d="M9.5 2.5h5M12 2.5V5.4M18.5 6.5l1.6-1.6"/><path d="M9.4 12.4 12.4 10.2V18.2" stroke="#fff" stroke-width="2.6"/></svg></span>`;
+  if(x.once>0){
+    const n = Math.min(3, x.once);
+    const digit = { 1:'M9.4 12.4 12.4 10.2V18.2', 2:'M9.5 11.6C9.9 10.4 10.8 9.8 12 9.8c1.4 0 2.4.8 2.4 2 0 .9-.5 1.6-1.4 2.4L9.5 18.2h5.3', 3:'M9.6 10h4.7l-2.1 3.1c1.6 0 2.6.9 2.6 2.3 0 1.5-1.2 2.6-2.8 2.6-1.1 0-2-.4-2.5-1.2' }[n];
+    const tip = n===1 ? 'Usage unique : une seule fois par rencontre' : `Usage limité : ${n} fois maximum par rencontre`;
+    h += `<span class="p-once" title="${tip}" style="${sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico};margin-right:0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="14" r="8.6" fill="currentColor"/><path d="M9.5 2.5h5M12 2.5V5.4M18.5 6.5l1.6-1.6"/><path d="${digit}" stroke="#fff" stroke-width="2.3"/></svg></span>`;
+  }
   if(v) h += `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="${sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
   return h;
 }
@@ -3416,7 +3423,7 @@ function buildTextExport(){
         lines.push(text('Description', item.description));
         (Array.isArray(item.abilities)?item.abilities:[]).slice(0,3).map(normalizeAbility).forEach((a,i)=>{
           if(!a.title && !a.effect && !a.modifier && !a.stat2) return;
-          lines.push(`Capacité ${i+1} : ${a.title||'(sans titre)'} — ${abilityMods(a)}${a.defensive?' — défense':''}${a.once?' — usage unique':''}${a.cooldown?` — rechargement ${a.cooldown}`:''}`);
+          lines.push(`Capacité ${i+1} : ${a.title||'(sans titre)'} — ${abilityMods(a)}${a.defensive?' — défense':''}${a.once===1?' — usage unique':a.once>1?` — ${a.once} usages max par rencontre`:''}${a.cooldown?` — rechargement ${a.cooldown}`:''}`);
           const eff = text('    Effet', a.effect); if(eff) lines.push(eff);
         });
       }
