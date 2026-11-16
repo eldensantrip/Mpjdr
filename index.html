@@ -995,7 +995,8 @@ function normalizeAbility(a){
     effect:String(a.effect ?? '').trim(),
     defensive: a.defensive===true || a.defensive==='on' || a.defensive==='true',
     cooldown: String(a.cooldown ?? '').trim().slice(0,6),
-    once: (a.once===true || a.once==='on' || a.once==='true') ? 1 : Math.max(0, Math.min(6, Math.floor(Number(a.once)) || 0))
+    once: (a.once===true || a.once==='on' || a.once==='true') ? 1 : Math.max(0, Math.min(9, Math.floor(Number(a.once)) || 0)),
+    total: (a.total===true || a.total==='on' || a.total==='true') ? 1 : Math.max(0, Math.min(9, Math.floor(Number(a.total)) || 0))
   };
 }
 function normalizeState(s){
@@ -2025,18 +2026,27 @@ function hybridStatFieldsHtml(prefix, a){
       <select name="${prefix}-modifier2">${Array.from({length:11},(_,j)=>j-5).map(v=>`<option value="${v}" ${(a.modifier2||0)===v?'selected':''}>${v>0?'+':''}${v}</option>`).join('')}</select>
     </label>`;
 }
-/* Champs « minuteur » communs à tous les formulaires de capacités : rechargement + nombre d'usages par rencontre (1 à 6). */
+/* Champs « minuteur » communs à tous les formulaires de capacités : rechargement (1 à 9 tours), usages par rencontre (1 à 9) et usages au total / définitifs (1 à 9). */
 function cooldownOnceFieldsHtml(prefix, a){
-  const opts=[[0,'Illimité (aucun symbole)'],[1,'1 fois (usage unique)'],...[2,3,4,5,6].map(k=>[k,k+' fois maximum'])];
+  const nums=[1,2,3,4,5,6,7,8,9];
+  const cdv=String((a&&a.cooldown)||'').trim();
+  const cdOpts=[['','Aucun (pas de symbole)'],...nums.map(k=>[String(k),k+(k>1?' tours':' tour')])];
+  if(cdv && !/^[1-9]$/.test(cdv)) cdOpts.push([cdv, cdv+' (valeur existante, affichée à côté du symbole)']);
+  const onceOpts=[[0,'Illimité (aucun symbole)'],[1,'1 fois (usage unique)'],...nums.slice(1).map(k=>[k,k+' fois maximum'])];
+  const totalOpts=[[0,'Illimité (aucun symbole)'],...nums.map(k=>[k,k+(k>1?' usages':' usage')+' au total'])];
+  const sel=(name,opts,isSel)=>`<select name="${prefix}${name}" style="max-width:260px">${opts.map(([k,l])=>`<option value="${escapeHtml(String(k))}" ${isSel(k)?'selected':''}>${escapeHtml(l)}</option>`).join('')}</select>`;
   return `<label style="margin-top:6px;">⏱ Temps de rechargement (en tours)</label>
-        <input type="text" name="${prefix}cooldown" value="${escapeHtml((a&&a.cooldown)||'')}" maxlength="6" placeholder="Ex. 3 (vide = aucun)" style="max-width:150px">
+        ${sel('cooldown',cdOpts,k=>String(k)===cdv)}
         <label style="margin-top:6px;">Usages par rencontre</label>
-        <select name="${prefix}once" style="max-width:220px">${opts.map(([k,l])=>`<option value="${k}" ${Number(a&&a.once)===k?'selected':''}>${l}</option>`).join('')}</select>`;
+        ${sel('once',onceOpts,k=>Number(a&&a.once)===k)}
+        <label style="margin-top:6px;">Usages au total (quantité définitive)</label>
+        ${sel('total',totalOpts,k=>Number(a&&a.total)===k)}`;
 }
 function applyTimerFields(item, fd, prefix){
-  const cd=String(fd.get(prefix+'cooldown')||'').trim().slice(0,6), once=Math.max(0,Math.min(6,Number(fd.get(prefix+'once'))||0));
+  const cd=String(fd.get(prefix+'cooldown')||'').trim().slice(0,6), once=Math.max(0,Math.min(9,Number(fd.get(prefix+'once'))||0)), total=Math.max(0,Math.min(9,Number(fd.get(prefix+'total'))||0));
   if(cd) item.cooldown=cd; else delete item.cooldown;
   if(once>0) item.once=once; else delete item.once;
+  if(total>0) item.total=total; else delete item.total;
 }
 function buildAbilityFields(item){
   const abilities=Array.isArray(item?.abilities)?item.abilities.slice(0,3).map(normalizeAbility):[];
@@ -2318,7 +2328,7 @@ formEl.addEventListener('submit',async(e)=>{
   if(activeTab==='companions'||activeTab==='creatures'){
     item.type=fd.get('type')||'';
     item.stats=Object.fromEntries(Object.keys(STAT_LABELS).map(k=>[k,Number(fd.get('stat-'+k))||0]));
-    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),stat2:fd.get(`ability-${i}-stat2`),modifier2:Number(fd.get(`ability-${i}-modifier2`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:!!fd.get(`ability-${i}-defensive`),cooldown:fd.get(`ability-${i}-cooldown`),once:Number(fd.get(`ability-${i}-once`))||0})).filter(a=>a.title||a.effect);
+    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),stat2:fd.get(`ability-${i}-stat2`),modifier2:Number(fd.get(`ability-${i}-modifier2`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:!!fd.get(`ability-${i}-defensive`),cooldown:fd.get(`ability-${i}-cooldown`),once:Number(fd.get(`ability-${i}-once`))||0,total:Number(fd.get(`ability-${i}-total`))||0})).filter(a=>a.title||a.effect);
     item.description=(fd.get('description')||'').trim();
     if(activeTab==='creatures') item.dangerLevel=currentStars.dangerLevel||0;
   }
@@ -3038,6 +3048,30 @@ function effectColorRgb(theme, stat, amount){
 }
 /* Capacité utilisable en défense : filigrane (nuance bleutée + bouclier) à l'intérieur gauche du cadre de la capacité. */
 /* Minuteur de rechargement d'une capacité de créature : petit chronomètre + valeur, à droite du titre (taille = police). */
+const TIMER_DIGITS = {
+  1:'M9.4 12.4 12.4 10.2V18.2',
+  2:'M9.5 11.6C9.9 10.4 10.8 9.8 12 9.8c1.4 0 2.4.8 2.4 2 0 .9-.5 1.6-1.4 2.4L9.5 18.2h5.3',
+  3:'M9.6 10h4.7l-2.1 3.1c1.6 0 2.6.9 2.6 2.3 0 1.5-1.2 2.6-2.8 2.6-1.1 0-2-.4-2.5-1.2',
+  4:'M13.4 18.2V9.8L9.3 15.1h6',
+  5:'M14.3 10H10.2l-.4 3.4c.5-.4 1.2-.6 1.9-.6 1.5 0 2.5.9 2.5 2.5s-1.1 2.8-2.7 2.8c-1 0-1.9-.4-2.4-1.1',
+  6:'M13.8 10.5C13.3 10 12.7 9.8 12 9.8c-1.6 0-2.5 1.7-2.5 4.1 0 2.6 1 4.3 2.6 4.3 1.4 0 2.4-1 2.4-2.4s-1-2.3-2.3-2.3c-1 0-1.8.5-2.5 1.5',
+  7:'M9.6 10h5l-3.2 8.2',
+  8:'M12 9.8C10.7 9.8 9.8 10.6 9.8 11.7C9.8 12.8 10.7 13.5 12 13.5C13.3 13.5 14.2 12.8 14.2 11.7C14.2 10.6 13.3 9.8 12 9.8ZM12 13.5C10.5 13.5 9.6 14.4 9.6 15.8C9.6 17.3 10.6 18.2 12 18.2C13.4 18.2 14.4 17.3 14.4 15.8C14.4 14.4 13.5 13.5 12 13.5Z',
+  9:'M10.2 17.5C10.7 18 11.3 18.2 12 18.2C13.6 18.2 14.5 16.5 14.5 14.1C14.5 11.4 13.5 9.8 11.9 9.8C10.5 9.8 9.5 10.8 9.5 12.2C9.5 13.6 10.5 14.5 11.8 14.5C12.8 14.5 13.6 14 14.3 13'
+};
+/* Symbole à valeur intégrée (1 à 9) :
+   - once     : chronomètre plein (usages max par rencontre)
+   - total    : hexagone plein (usages au total, définitifs)
+   - cooldown : chronomètre en contour (rechargement en tours) */
+function timerSymbolSvg(kind, n){
+  const digit = TIMER_DIGITS[n]; if(!digit) return '';
+  const open = '<svg viewBox="0 0 24 24" width="1em" height="1em" style="display:inline-block;vertical-align:-.16em" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">';
+  const tabs = '<path d="M9.5 2.5h5M12 2.5V5.4M18.5 6.5l1.6-1.6"/>';
+  if(kind==='once')  return open+'<circle cx="12" cy="14" r="8.6" fill="currentColor"/>'+tabs+'<path d="'+digit+'" stroke="#fff" stroke-width="2.3"/></svg>';
+  if(kind==='total') return open+'<path d="M12 5.6 19.3 9.8V18.2L12 22.4 4.7 18.2V9.8Z" fill="currentColor" stroke-width="1.8"/><path d="'+digit+'" stroke="#fff" stroke-width="2.3"/></svg>';
+  return open+'<circle cx="12" cy="14" r="8"/>'+tabs+'<path d="'+digit+'" stroke-width="2.1"/></svg>';
+}
+/* Symboles de limite d'usage d'une capacité (usages par rencontre, usages définitifs, rechargement), à droite du titre (taille = police). */
 function cooldownHtml(x){
   if(!x) return '';
   const v = String(x.cooldown || '').trim();
@@ -3045,12 +3079,20 @@ function cooldownHtml(x){
   const ico = 'display:inline-block;vertical-align:-.16em;margin-right:.18em';
   let h = '';
   if(x.once>0){
-    const n = Math.min(6, x.once);
-    const digit = { 1:'M9.4 12.4 12.4 10.2V18.2', 2:'M9.5 11.6C9.9 10.4 10.8 9.8 12 9.8c1.4 0 2.4.8 2.4 2 0 .9-.5 1.6-1.4 2.4L9.5 18.2h5.3', 3:'M9.6 10h4.7l-2.1 3.1c1.6 0 2.6.9 2.6 2.3 0 1.5-1.2 2.6-2.8 2.6-1.1 0-2-.4-2.5-1.2', 4:'M13.4 18.2V9.8L9.3 15.1h6', 5:'M14.3 10H10.2l-.4 3.4c.5-.4 1.2-.6 1.9-.6 1.5 0 2.5.9 2.5 2.5s-1.1 2.8-2.7 2.8c-1 0-1.9-.4-2.4-1.1', 6:'M13.8 10.5C13.3 10 12.7 9.8 12 9.8c-1.6 0-2.5 1.7-2.5 4.1 0 2.6 1 4.3 2.6 4.3 1.4 0 2.4-1 2.4-2.4s-1-2.3-2.3-2.3c-1 0-1.8.5-2.5 1.5' }[n];
+    const n = Math.min(9, x.once);
     const tip = n===1 ? 'Usage unique : une seule fois par rencontre' : `Usage limité : ${n} fois maximum par rencontre`;
-    h += `<span class="p-once" title="${tip}" style="${sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico};margin-right:0" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="14" r="8.6" fill="currentColor"/><path d="M9.5 2.5h5M12 2.5V5.4M18.5 6.5l1.6-1.6"/><path d="${digit}" stroke="#fff" stroke-width="2.3"/></svg></span>`;
+    h += `<span class="p-once" title="${tip}" style="${sw}">${timerSymbolSvg('once', n)}</span>`;
   }
-  if(v) h += `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="${sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
+  if(x.total>0){
+    const n = Math.min(9, x.total);
+    const tip = n===1 ? 'Usage définitif : une seule utilisation au total' : `Usage définitif : ${n} utilisations au total`;
+    h += `<span class="p-total" title="${tip}" style="${sw}">${timerSymbolSvg('total', n)}</span>`;
+  }
+  if(/^[1-9]$/.test(v)){
+    h += `<span class="p-cooldown" title="Rechargement : ${v} tour${v==='1'?'':'s'}" style="${sw}">${timerSymbolSvg('cooldown', Number(v))}</span>`;
+  } else if(v){
+    h += `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="${sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
+  }
   return h;
 }
 function defMarkHtml(a){ return (a && a.defensive) ? '<i class="p-def-mark" aria-hidden="true"></i><i class="p-def-shield" aria-hidden="true"></i>' : ''; }
@@ -3433,12 +3475,13 @@ function buildTextExport(){
         if(cat==='abilities' || cat==='objects') lines.push(`Utilisable en défense : ${a.defensive?'oui':'non'}`);
         lines.push(text('Effet', a.effect || item.description));
         if(a.once) lines.push(a.once===1?'Usage unique : oui':`Usages max par rencontre : ${a.once}`);
+        if(a.total) lines.push(`Usages au total (définitif) : ${a.total}`);
         if(a.cooldown) lines.push(`Rechargement : ${a.cooldown}`);
       } else {
         lines.push(text('Description', item.description));
         (Array.isArray(item.abilities)?item.abilities:[]).slice(0,3).map(normalizeAbility).forEach((a,i)=>{
           if(!a.title && !a.effect && !a.modifier && !a.stat2) return;
-          lines.push(`Capacité ${i+1} : ${a.title||'(sans titre)'} — ${abilityMods(a)}${a.defensive?' — défense':''}${a.once===1?' — usage unique':a.once>1?` — ${a.once} usages max par rencontre`:''}${a.cooldown?` — rechargement ${a.cooldown}`:''}`);
+          lines.push(`Capacité ${i+1} : ${a.title||'(sans titre)'} — ${abilityMods(a)}${a.defensive?' — défense':''}${a.once===1?' — usage unique':a.once>1?` — ${a.once} usages max par rencontre`:''}${a.total?` — ${a.total} usage${a.total>1?'s':''} au total`:''}${a.cooldown?` — rechargement ${a.cooldown}`:''}`);
           const eff = text('    Effet', a.effect); if(eff) lines.push(eff);
         });
       }
