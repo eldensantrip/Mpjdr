@@ -3075,25 +3075,27 @@ function cooldownHtml(x){
   const v = String(x.cooldown || '').trim();
   const sw = 'margin-left:1.3mm;font-weight:700;white-space:nowrap;';
   const ico = 'display:inline-block;vertical-align:-.16em;margin-right:.18em';
-  const sws = sw + 'font-size:6.6pt;';
+  const swsFirst = sw + 'font-size:6.6pt;';
+  const swsNext = 'margin-left:.4mm;font-weight:700;white-space:nowrap;font-size:6.6pt;';
   let h = '';
+  const sws = () => h ? swsNext : swsFirst;
   if(x.defensive){
-    h += `<span class="p-def-icon" title="Utilisable en défense" style="${sws}"><svg viewBox="0 0 24 24" width="1.45em" height="1.45em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M12 2.6 20 5.8v6.2c0 4.9-3.3 8.2-8 10-4.7-1.8-8-5.1-8-10V5.8z" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.6 16.6 8.4v3.8c0 3-2 5.2-4.6 6.5-2.6-1.3-4.6-3.5-4.6-6.5V8.4z" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></span>`;
+    h += `<span class="p-def-icon" title="Utilisable en défense" style="${sws()}"><svg viewBox="0 0 24 24" width="1.45em" height="1.45em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M12 2.6 20 5.8v6.2c0 4.9-3.3 8.2-8 10-4.7-1.8-8-5.1-8-10V5.8z" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.6 16.6 8.4v3.8c0 3-2 5.2-4.6 6.5-2.6-1.3-4.6-3.5-4.6-6.5V8.4z" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg></span>`;
   }
   if(x.once>0){
     const n = Math.min(9, x.once);
     const tip = n===1 ? 'Usage unique : une seule fois par rencontre' : `Usage limité : ${n} fois maximum par rencontre`;
-    h += `<span class="p-once" title="${tip}" style="${sws}">${timerSymbolSvg('once', n)}</span>`;
+    h += `<span class="p-once" title="${tip}" style="${sws()}">${timerSymbolSvg('once', n)}</span>`;
   }
   if(x.total>0){
     const n = Math.min(9, x.total);
     const tip = n===1 ? 'Usage définitif : une seule utilisation au total' : `Usage définitif : ${n} utilisations au total`;
-    h += `<span class="p-total" title="${tip}" style="${sws}">${timerSymbolSvg('total', n)}</span>`;
+    h += `<span class="p-total" title="${tip}" style="${sws()}">${timerSymbolSvg('total', n)}</span>`;
   }
   if(/^[1-9]$/.test(v)){
-    h += `<span class="p-cooldown" title="Rechargement : ${v} tour${v==='1'?'':'s'}" style="${sws}">${timerSymbolSvg('cooldown', Number(v))}</span>`;
+    h += `<span class="p-cooldown" title="Rechargement : ${v} tour${v==='1'?'':'s'}" style="${sws()}">${timerSymbolSvg('cooldown', Number(v))}</span>`;
   } else if(v){
-    h += `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="${sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
+    h += `<span class="p-cooldown" title="Rechargement : ${escapeHtml(v)}" style="${h?sw.replace('1.3mm','.4mm'):sw}"><svg viewBox="0 0 24 24" width="1em" height="1em" style="${ico}" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" aria-hidden="true"><circle cx="12" cy="14" r="8"/><path d="M12 14V9M9.5 2.5h5M12 2.5V6M18.5 6.5l1.6-1.6"/></svg>${escapeHtml(v)}</span>`;
   }
   return h;
 }
