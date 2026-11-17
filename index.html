@@ -363,6 +363,10 @@
   .card .card-actions{ display:flex; gap:6px; justify-content:flex-end; border-top:1.5px dashed #c8b98f; padding-top:8px; margin-top:auto; }
   .select-box{ position:absolute; top:10px; left:10px; width:20px;height:20px; accent-color:var(--forest); z-index:2; }
 
+  /* ===== Aperçu d'une feuille de personnage ===== */
+  .cs-preview-box{ --cs-zoom:.85; position:relative; width:calc(148.5mm * var(--cs-zoom)); height:calc(210mm * var(--cs-zoom)); }
+  .cs-preview-host{ position:absolute; left:0; top:0; width:148.5mm; height:210mm; transform:scale(var(--cs-zoom)); transform-origin:top left; background:#fffdf6; border:1px solid #cdbf9b; box-shadow:0 2px 12px rgba(0,0,0,.25); }
+
   /* ===== MODALS ===== */
   .modal-backdrop{ position:fixed; inset:0; background:rgba(20,15,8,0.55); display:none; align-items:center; justify-content:center; z-index:50; padding:20px; }
   .modal-backdrop.open{ display:flex; }
@@ -656,7 +660,7 @@
         <div class="toolbar-right">
           <label class="check"><input type="checkbox" id="blank-mode"> Cases vierges à colorier (impression)</label>
           <button class="forest" id="btn-print-selection">🖨️ Imprimer la sélection</button>
-          <button class="plum" id="btn-char-sheet" title="Compose une feuille de personnage (personnage, capacités, objets magiques, familier) dans un nouvel onglet, 2 feuilles par page A4">📋 Feuille de personnage</button>
+          <button class="plum" id="btn-char-sheet" title="Crée une feuille de personnage (onglet « Feuilles de personnage »), préremplie avec ta sélection actuelle">📋 Créer une feuille</button>
           <button class="primary" id="btn-export-png" title="Exporte chaque carte sélectionnée en image PNG (ZIP si plusieurs)">🖼️ Exporter en PNG</button>
         </div>
       </div>
@@ -808,39 +812,6 @@
   </div>
 </div>
 
-<div class="modal-backdrop" id="charsheet-backdrop">
-  <div class="modal">
-    <h2>📋 Feuille de personnage</h2>
-    <p class="hint">Compose une feuille dans un nouvel onglet : illustration, caractéristiques, capacités, objets magiques et totaux d'attaque / défense. Chaque feuille ajoutée prend une demi-page A4 (2 par page).</p>
-    <div class="field">
-      <label for="cs-char">Personnage</label>
-      <select id="cs-char"></select>
-    </div>
-    <div class="field">
-      <label for="cs-pet">Familier (facultatif)</label>
-      <select id="cs-pet"></select>
-    </div>
-    <div class="field">
-      <label>Capacités</label>
-      <div id="cs-abilities" style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;"></div>
-    </div>
-    <div class="field">
-      <label>Objets magiques (facultatif)</label>
-      <div id="cs-objects" style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;"></div>
-    </div>
-    <div class="field">
-      <label class="check"><input type="checkbox" id="cs-magic" checked> Afficher les lignes d'attaque et de défense magiques (sous INT)</label>
-      <label class="check" style="margin-top:6px;"><input type="checkbox" id="cs-effects"> Afficher le texte des effets sous chaque capacité / objet</label>
-    </div>
-    <p class="hint" id="cs-queue-info" style="display:none;"></p>
-    <div class="modal-footer">
-      <button type="button" class="ghost" id="cs-cancel">Annuler</button>
-      <button type="button" class="ghost" id="cs-clear" style="display:none;">🗑 Vider la planche</button>
-      <button type="button" class="forest" id="cs-confirm">📋 Ajouter à la planche et ouvrir</button>
-    </div>
-  </div>
-</div>
-
 <div class="modal-backdrop" id="folders-modal-backdrop">
   <div class="modal">
     <h2>🗂️ Dossiers — <span id="folders-modal-cat"></span></h2>
@@ -909,6 +880,8 @@ const CATEGORIES = {
                  hint:"Format carte à jouer (60×84 mm) — jusqu'à 9 capacités par feuille." },
   characters:  { label:"Personnages",        singular:"un personnage", icon:"", printCols:2, perPage:6,
                  hint:"Format carte à jouer (60×84 mm) — 6 personnages par feuille." },
+  sheets:      { label:"Feuilles de personnage", singular:"une feuille de personnage", icon:"", printCols:1, perPage:2, sheet:true,
+                 hint:"Feuille de personnage A4 paysage — 2 par page. Coche les feuilles à imprimer, puis clique sur « Imprimer les feuilles »." },
   companions:  { label:"Compagnons",         singular:"un compagnon",  icon:"", printCols:2, perPage:6,
                  hint:"Format carte à jouer (60×84 mm) — 6 compagnons par feuille." },
   creatures:   { label:"Créatures",          singular:"une créature",  icon:"", printCols:2, perPage:6,
@@ -1100,6 +1073,14 @@ function normalizeState(s){
         force: Number.isFinite(Number(item.stats.force)) ? Number(item.stats.force) : 0
       };
       item.heroPoints = Math.max(0, Math.min(4, Number(item.heroPoints) || 0));
+    }
+    if(cat === 'sheets'){
+      item.char = typeof item.char === 'string' ? item.char : '';
+      item.pet = typeof item.pet === 'string' ? item.pet : '';
+      item.abilities = Array.isArray(item.abilities) ? item.abilities.filter(x=>typeof x==='string') : [];
+      item.objects = Array.isArray(item.objects) ? item.objects.filter(x=>typeof x==='string') : [];
+      item.magic = item.magic !== false;
+      item.effects = !!item.effects;
     }
     if(cat === 'objects') item.rarity = normalizeRarity(item.rarity);
     if(cat === 'companions' || cat === 'creatures'){
@@ -1423,10 +1404,15 @@ function renderTabs(){
   });
   document.getElementById("cat-hint").textContent = "📐 " + CATEGORIES[activeTab].hint;
   const isColoringTab = !!(CATEGORIES[activeTab] && CATEGORIES[activeTab].coloring);
+  const isSheetTab = !!(CATEGORIES[activeTab] && CATEGORIES[activeTab].sheet);
   const themeBtn = document.getElementById('btn-theme');
-  if(themeBtn) themeBtn.style.display = isColoringTab ? 'none' : '';
+  if(themeBtn) themeBtn.style.display = (isColoringTab||isSheetTab) ? 'none' : '';
   const aiBtn = document.getElementById('btn-ai-generate');
-  if(aiBtn) aiBtn.style.display = isColoringTab ? 'none' : '';
+  if(aiBtn) aiBtn.style.display = (isColoringTab||isSheetTab) ? 'none' : '';
+  const blankLbl = document.getElementById('blank-mode') && document.getElementById('blank-mode').closest('label');
+  if(blankLbl) blankLbl.style.display = isSheetTab ? 'none' : '';
+  const csBtn = document.getElementById('btn-char-sheet');
+  if(csBtn) csBtn.style.display = isSheetTab ? 'none' : '';
 }
 
 /* ==================== RECHERCHE / DOSSIERS ==================== */
@@ -1441,7 +1427,7 @@ function getVisibleItems(){
   const q = normalizeSearchStr(searchQuery).trim();
   if(q){
     items = items.filter(x=>{
-      const hay = normalizeSearchStr([x.name,x.description,x.effect,x.className,x.type].filter(Boolean).join(' '));
+      const hay = normalizeSearchStr([x.name,x.description,x.effect,x.className,x.type,activeTab==='sheets'?csSheetCharName(x):''].filter(Boolean).join(' '));
       return hay.includes(q);
     });
   }
@@ -1795,6 +1781,7 @@ const hoverPreviewEl = document.getElementById('hover-card-preview');
 let hoverPreviewTimer = null;
 function showHoverPreview(el, x){
   clearTimeout(hoverPreviewTimer);
+  if(activeTab==='sheets') return;
   hoverPreviewTimer = setTimeout(()=>{
     const previewClass = STAT_CARD_TABS.includes(activeTab)||activeTab==='places' ? 'ability-preview' : (activeTab==='characters' ? 'char-preview' : (activeTab==='companions'||activeTab==='creatures' ? 'creature-preview' : ''));
     hoverPreviewEl.innerHTML = `<div class="screen-print-card ${previewClass}">${printCard(x,false)}</div>`;
@@ -1836,7 +1823,7 @@ function renderGrid(){
   const item=items.find(x=>x.id===window.__studioSelectedId)||items[0];
   const previewClass = STAT_CARD_TABS.includes(activeTab)||activeTab==='places' ? 'ability-preview' : (activeTab==='characters' ? 'char-preview' : (activeTab==='companions'||activeTab==='creatures' ? 'creature-preview' : ''));
   const foldersMap = new Map((state.folders[activeTab]||[]).map(f=>[f.id,f]));
-  grid.innerHTML=`<aside class="studio-list"><div class="studio-list-head">${escapeHtml(CATEGORIES[activeTab].label)} <span class="count">${items.length}${items.length!==total?` / ${total}`:''}</span></div>${items.map(x=>{const xs=avatarSrc(x);const qa=(STAT_CARD_TABS.includes(activeTab)||(activeTab==='places'&&(x.effect||Number(x.modifier))))?normalizeAbility(x):null;const folder=x.folderId?foldersMap.get(x.folderId):null;return `<div class="studio-list-item ${x.id===item.id?'active':''}" data-studio-id="${x.id}" draggable="true" style="${folder?`border-left:5px solid ${folder.color};`:''}${rarityListBackgroundStyle(activeTab,x)}"><input type="checkbox" class="studio-check" data-id="${x.id}" ${selectedIds.has(x.id)?'checked':''} onclick="event.stopPropagation()"><div class="studio-thumb">${xs?`<img src="${xs}" alt="">`:''}</div><div><div class="studio-list-name">${escapeHtml(x.name||'Sans nom')}</div>${libraryDominantBannerHtml(activeTab,x)}<div class="studio-list-meta">${qa?`${STAT_SHORT[qa.stat]} ${qa.modifier>=0?'+':''}${qa.modifier}${qa.stat2&&qa.stat2!==qa.stat?` / ${STAT_SHORT[qa.stat2]} ${qa.modifier2>=0?'+':''}${qa.modifier2}`:''}`:(x.type||'Carte')}</div>${activeTab==='objects'&&RARITIES[x.rarity]?`<div class="studio-list-meta">${RARITIES[x.rarity].label}</div>`:''}${folder?`<div class="studio-list-meta">Dossier : ${escapeHtml(folder.name)}</div>`:''}</div><button type="button" class="small ghost studio-del" data-id="${x.id}" title="Supprimer">×</button></div>`}).join('')}</aside><section class="studio-main"><div class="studio-preview-wrap"><div class="screen-print-card ${previewClass}">${printCard(item,false)}</div></div><div class="studio-actions"><button type="button" class="primary" id="studio-edit">✏️ Modifier</button><button type="button" class="forest" id="studio-png" title="Télécharger cette carte en PNG">🖼️ PNG</button><button type="button" class="ghost" id="studio-recenter" title="Remet l'illustration centrée, sans zoom">⌖ Recentrer</button></div>${avatarSrc(item)?'<div class="studio-pan-hint">Illustration : glisse pour la déplacer, molette pour zoomer, double-clic pour recentrer.</div>':''}</section>`;
+  grid.innerHTML=`<aside class="studio-list"><div class="studio-list-head">${escapeHtml(CATEGORIES[activeTab].label)} <span class="count">${items.length}${items.length!==total?` / ${total}`:''}</span></div>${items.map(x=>{const xs=avatarSrc(x);const qa=(STAT_CARD_TABS.includes(activeTab)||(activeTab==='places'&&(x.effect||Number(x.modifier))))?normalizeAbility(x):null;const folder=x.folderId?foldersMap.get(x.folderId):null;return `<div class="studio-list-item ${x.id===item.id?'active':''}" data-studio-id="${x.id}" draggable="true" style="${folder?`border-left:5px solid ${folder.color};`:''}${rarityListBackgroundStyle(activeTab,x)}"><input type="checkbox" class="studio-check" data-id="${x.id}" ${selectedIds.has(x.id)?'checked':''} onclick="event.stopPropagation()"><div class="studio-thumb">${xs?`<img src="${xs}" alt="">`:''}</div><div><div class="studio-list-name">${escapeHtml(x.name||'Sans nom')}</div>${activeTab==='sheets'?'':libraryDominantBannerHtml(activeTab,x)}<div class="studio-list-meta">${qa?`${STAT_SHORT[qa.stat]} ${qa.modifier>=0?'+':''}${qa.modifier}${qa.stat2&&qa.stat2!==qa.stat?` / ${STAT_SHORT[qa.stat2]} ${qa.modifier2>=0?'+':''}${qa.modifier2}`:''}`:(activeTab==='sheets'?csSheetMeta(x):(x.type||'Carte'))}</div>${activeTab==='objects'&&RARITIES[x.rarity]?`<div class="studio-list-meta">${RARITIES[x.rarity].label}</div>`:''}${folder?`<div class="studio-list-meta">Dossier : ${escapeHtml(folder.name)}</div>`:''}</div><button type="button" class="small ghost studio-del" data-id="${x.id}" title="Supprimer">×</button></div>`}).join('')}</aside><section class="studio-main"><div class="studio-preview-wrap">${activeTab==='sheets'?'<div class="cs-preview-box"><div class="cs-preview-host" id="cs-preview-host"></div></div>':`<div class="screen-print-card ${previewClass}">${printCard(item,false)}</div>`}</div><div class="studio-actions"><button type="button" class="primary" id="studio-edit">✏️ Modifier</button>${activeTab==='sheets'?`<button type="button" class="forest" id="studio-print-sheet" title="Imprime uniquement cette feuille">🖨️ Imprimer cette feuille</button>`:`<button type="button" class="forest" id="studio-png" title="Télécharger cette carte en PNG">🖼️ PNG</button><button type="button" class="ghost" id="studio-recenter" title="Remet l'illustration centrée, sans zoom">⌖ Recentrer</button>`}</div>${activeTab!=='sheets'&&avatarSrc(item)?'<div class="studio-pan-hint">Illustration : glisse pour la déplacer, molette pour zoomer, double-clic pour recentrer.</div>':''}</section>`;
   const newListEl = grid.querySelector('.studio-list');
   if(newListEl){
     newListEl.scrollTop = prevScrollTop;
@@ -1858,8 +1845,13 @@ function renderGrid(){
   grid.querySelectorAll('.studio-check').forEach(el=>el.onchange=e=>{if(e.target.checked)selectedIds.add(e.target.dataset.id);else selectedIds.delete(e.target.dataset.id);updateSelectionUi();});
   grid.querySelectorAll('.studio-del').forEach(el=>el.onclick=async e=>{e.stopPropagation();const id=el.dataset.id;const x=state[activeTab].find(y=>y.id===id);if(!confirm(`Supprimer « ${x?.name||'Sans nom'} » ?`))return;if(x?.avatarImageId)await deleteImage(x.avatarImageId);state[activeTab]=state[activeTab].filter(y=>y.id!==id);selectedIds.delete(id);window.__studioSelectedId=null;await saveState();renderAll();});
   document.getElementById('studio-edit').onclick=()=>openModal(item.id);
-  document.getElementById('studio-png').onclick=function(){ exportCardsPng([{cat:activeTab,item}], this); };
-  wireAvatarPanZoom(item);
+  if(activeTab==='sheets'){
+    renderSheetPreview(item);
+    const pb=document.getElementById('studio-print-sheet'); if(pb) pb.onclick=()=>openSheetsPrint([item.id]);
+  } else {
+    document.getElementById('studio-png').onclick=function(){ exportCardsPng([{cat:activeTab,item}], this); };
+    wireAvatarPanZoom(item);
+  }
 }
 
 
@@ -1971,6 +1963,7 @@ function selectionByCategory(){
   // Regroupe la sélection (toutes catégories) dans l'ordre des onglets puis des cartes.
   const out=[];
   Object.keys(CATEGORIES).forEach(cat=>{
+    if(CATEGORIES[cat].sheet) return; // les feuilles de personnage s'impriment à part
     const items=(state[cat]||[]).filter(i=>selectedIds.has(i.id));
     if(items.length) out.push({cat, items});
   });
@@ -1986,14 +1979,28 @@ function updateSelectionUi(){
   // Retire les ids qui n'existent plus (carte supprimée, import, etc.).
   [...selectedIds].forEach(id=>{ if(!categoryOfId(id)) selectedIds.delete(id); });
   const {total, detail}=selectionSummaryText();
+  const onSheets = !!(CATEGORIES[activeTab] && CATEGORIES[activeTab].sheet);
+  const nSheets = (state.sheets||[]).filter(i=>selectedIds.has(i.id)).length;
   const btn=document.getElementById("btn-print-selection");
-  if(btn){ btn.disabled=total===0; btn.textContent = total ? `🖨️ Imprimer la sélection (${total})` : '🖨️ Imprimer la sélection'; }
+  if(btn){
+    const n = onSheets ? nSheets : total;
+    btn.disabled = n===0;
+    btn.textContent = onSheets ? (n ? `🖨️ Imprimer les feuilles (${n})` : '🖨️ Imprimer les feuilles') : (n ? `🖨️ Imprimer la sélection (${n})` : '🖨️ Imprimer la sélection');
+  }
   const pngBtn=document.getElementById('btn-export-png');
-  if(pngBtn && !pngBtn.dataset.busy){ pngBtn.disabled=total===0; pngBtn.textContent = total ? `🖼️ Exporter en PNG (${total})` : '🖼️ Exporter en PNG'; }
+  if(pngBtn){
+    pngBtn.style.display = onSheets ? 'none' : '';
+    if(!pngBtn.dataset.busy){ pngBtn.disabled=total===0; pngBtn.textContent = total ? `🖼️ Exporter en PNG (${total})` : '🖼️ Exporter en PNG'; }
+  }
   const sum=document.getElementById('selection-summary');
-  if(sum){ sum.style.display=total?'':'none'; sum.textContent = total ? `Sélection — ${detail}. Tu peux changer d'onglet pour ajouter des cartes d'autres catégories.` : ''; }
+  if(sum){
+    const sumText = onSheets
+      ? (nSheets ? `${nSheets} feuille${nSheets>1?'s':''} sélectionnée${nSheets>1?'s':''} — ${Math.ceil(nSheets/2)} page${nSheets>2?'s':''} A4 paysage (2 feuilles par page).` : '')
+      : (total ? `Sélection — ${detail}. Tu peux changer d'onglet pour ajouter des cartes d'autres catégories.` : '');
+    sum.style.display = sumText ? '' : 'none'; sum.textContent = sumText;
+  }
   const clr=document.getElementById('btn-clear-selection');
-  if(clr) clr.style.display=total?'':'none';
+  if(clr) clr.style.display=(total||nSheets)?'':'none';
   const vis=getVisibleItems();
   const all=document.getElementById('select-all');
   if(all) all.checked = vis.length>0 && vis.every(i=>selectedIds.has(i.id));
@@ -2101,7 +2108,7 @@ function buildAbilityFields(item){
         <label>Titre</label>
         <input type="text" name="ability-${i}-title" value="${escapeHtml(a.title)}" maxlength="50" placeholder="Ex. Bond fulgurant">
         ${cooldownOnceFieldsHtml('ability-'+i+'-', a)}
-        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;"><span>🛡 Bouclier</span><select name="ability-${i}-shield" style="max-width:280px"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (+1, non cumulable)</option></select></div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;"><span>🛡 Bouclier</span><select name="ability-${i}-shield" style="max-width:280px"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (non cumulable)</option></select></div>
         <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-attack" ${a.attack?'checked':''}> ⚔ Attaque (inflige des dégâts)</label>
         <label>Effets</label>
         <textarea name="ability-${i}-effect" maxlength="260" rows="3" placeholder="Décris les effets de la capacité.">${escapeHtml(a.effect)}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div>
@@ -2131,7 +2138,7 @@ function buildColoringAbilityFields(item){
         </div>
         <label>Titre</label>
         <input type="text" name="ability-${i}-title" value="${escapeHtml(a.title)}" maxlength="50" placeholder="Ex. Bond fulgurant">
-        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;"><span>🛡 Bouclier</span><select name="ability-${i}-shield" style="max-width:280px"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (+1, non cumulable)</option></select></div>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;"><span>🛡 Bouclier</span><select name="ability-${i}-shield" style="max-width:280px"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (non cumulable)</option></select></div>
         <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-attack" ${a.attack?'checked':''}> ⚔ Attaque (inflige des dégâts)</label>
         <label>Effets</label>
         <textarea name="ability-${i}-effect" maxlength="260" rows="3" placeholder="Décris les effets de la capacité.">${escapeHtml(a.effect)}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div>
@@ -2185,7 +2192,7 @@ function buildFormFields(item){
     <div class="field"><label>Bonus / Malus</label><input type="number" name="ability-modifier" value="${a.modifier}" step="1" inputmode="numeric"></div>
     <div class="field ability-meta">${hybridStatFieldsHtml('ability', a)}<small>Combine deux caractéristiques : les bulles se cumulent et le champ affiche un dégradé entre les deux couleurs.</small></div>
     <div class="field"><label class="check"><input type="checkbox" name="ability-attack" ${a.attack?'checked':''}> ⚔ Attaque (inflige des dégâts)</label><small>Ajoute un symbole d’épée à droite du titre de la capacité, après le bouclier éventuel.</small></div>
-    ${activeTab==='traps'?'':`<div class="field"><label>🛡 Bouclier</label><select name="ability-shield"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (+1, non cumulable)</option></select><small>Ajoute un symbole de bouclier à droite du titre (avec un astérisque pour la variante « non cumulable », règle appliquée à la table) et une nuance bleutée sur le cadre. Se combine avec l’épée.</small></div>`}
+    ${activeTab==='traps'?'':`<div class="field"><label>🛡 Bouclier</label><select name="ability-shield"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (non cumulable)</option></select><small>Ajoute un symbole de bouclier à droite du titre (avec un astérisque pour la variante « non cumulable » : sur la feuille de personnage, seul le meilleur bonus parmi les défenses à astérisque est compté pour chaque caractéristique) et une nuance bleutée sur le cadre. Se combine avec l’épée.</small></div>`}
     <div class="field">${cooldownOnceFieldsHtml('ability-', a)}</div>
     <div class="field"><label>${effectLabel}</label><textarea name="ability-effect" maxlength="500" rows="6" placeholder="${effectPlaceholder}">${escapeHtml(a.effect||item.description||'')}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div></div>`;
   }
@@ -2251,6 +2258,57 @@ function buildFormFields(item){
     </div>
     <div class="modal-footer"><button type="button" class="ghost" id="cancel-btn">Annuler</button><button type="submit" class="primary">Enregistrer</button></div>`;
   return html;
+}
+
+/* ---- Formulaire d'une feuille de personnage ---- */
+function buildSheetFormFields(item){
+  const isNew = !item; item = item || {};
+  const byName = cat => (state[cat]||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr'));
+  const firstSel = cat => (state[cat]||[]).find(i=>selectedIds.has(i.id));
+  const selChar = isNew ? ((firstSel('characters')||{}).id||'') : (item.char||'');
+  const selPet  = isNew ? ((firstSel('companions')||{}).id||'') : (item.pet||'');
+  const selAbil = new Set(isNew ? (state.abilities||[]).filter(i=>selectedIds.has(i.id)).map(i=>i.id) : (item.abilities||[]));
+  const selObj  = new Set(isNew ? (state.objects||[]).filter(i=>selectedIds.has(i.id)).map(i=>i.id) : (item.objects||[]));
+  const chObj = (state.characters||[]).find(c=>c.id===selChar);
+  const name = isNew ? ((chObj&&chObj.name)||'') : (item.name||'');
+  const magic = isNew ? true : item.magic!==false;
+  const effects = isNew ? false : !!item.effects;
+  const folders = state.folders.sheets||[];
+  const check = (cat, sel) => {
+    const list = byName(cat);
+    if(!list.length) return '<small>Aucun élément dans cette catégorie.</small>';
+    return list.map(it=>`<label class="check" style="font-weight:500;margin:2px 0;"><input type="checkbox" name="cs-${cat}" value="${escapeHtml(it.id)}" ${sel.has(it.id)?'checked':''}> ${escapeHtml(it.name||'Sans nom')}</label>`).join('');
+  };
+  return `<div class="field"><label>Nom de la feuille</label>
+    <input type="text" name="name" value="${escapeHtml(name)}" required maxlength="40" placeholder="Ex. Arthur — niveau 3"></div>
+  <div class="field"><label>Dossier</label>
+    <div class="file-row"><select name="folderId" id="form-folder-select"><option value="">— Aucun dossier —</option>${folders.map(f=>`<option value="${f.id}" data-color="${f.color}" ${item.folderId===f.id?'selected':''}>${escapeHtml(f.name)}</option>`).join('')}</select><span id="form-folder-dot" class="folder-color-dot"></span></div>
+  </div>
+  <div class="field"><label>Personnage</label>
+    <select name="sheet-char" id="sheet-char" required><option value="">— Choisir un personnage —</option>${byName('characters').map(c=>`<option value="${escapeHtml(c.id)}" ${selChar===c.id?'selected':''}>${escapeHtml(c.name||'Sans nom')}${c.className?' · '+escapeHtml(c.className):''}</option>`).join('')}</select>
+    <small>L'illustration et les caractéristiques sont reprises du personnage : si tu les modifies dans l'onglet Personnages, la feuille se met à jour.</small>
+  </div>
+  <div class="field"><label>Familier (facultatif)</label>
+    <select name="sheet-pet"><option value="">— Aucun —</option>${byName('companions').map(c=>`<option value="${escapeHtml(c.id)}" ${selPet===c.id?'selected':''}>${escapeHtml(c.name||'Sans nom')}${c.type?' · '+escapeHtml(c.type):''}</option>`).join('')}</select>
+  </div>
+  <div class="field"><label>Capacités</label>
+    <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('abilities',selAbil)}</div></div>
+  <div class="field"><label>Objets magiques (facultatif)</label>
+    <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('objects',selObj)}</div>
+    <small>Attaque : tous les bonus s'additionnent. Défense : les bonus s'additionnent, sauf ceux des éléments à défense avec astérisque (non cumulables) — pour chaque caractéristique, seul le meilleur est compté.</small></div>
+  <div class="field">
+    <label class="check"><input type="checkbox" name="cs-magic" ${magic?'checked':''}> Afficher les lignes d'attaque et de défense magiques (sous INT)</label>
+    <label class="check" style="margin-top:6px;"><input type="checkbox" name="cs-effects" ${effects?'checked':''}> Afficher le texte des effets sous chaque capacité / objet</label>
+  </div>
+  <div class="modal-footer"><button type="button" class="ghost" id="cancel-btn">Annuler</button><button type="submit" class="primary">Enregistrer</button></div>`;
+}
+function wireSheetForm(){
+  const sel=document.getElementById('sheet-char'), nm=formEl.querySelector('[name="name"]');
+  if(!sel||!nm) return;
+  const charName = id => ((state.characters||[]).find(c=>c.id===id)||{}).name||'';
+  let auto = !nm.value.trim() || nm.value.trim()===charName(sel.value);
+  sel.onchange=()=>{ if(auto || !nm.value.trim()){ nm.value=charName(sel.value).slice(0,40); auto=true; } };
+  nm.oninput=()=>{ auto=false; };
 }
 
 let currentAvatarImg=null;
@@ -2328,6 +2386,14 @@ function openModal(id){
   editingId=id;
   const item=id?state[activeTab].find(i=>i.id===id):null;
   document.getElementById('modal-title').textContent=(id?'Modifier ':'Ajouter ')+CATEGORIES[activeTab].singular;
+  if(activeTab==='sheets'){
+    formEl.innerHTML=buildSheetFormFields(item);
+    currentAvatarImg=null; currentAvatarBlob=null; currentEmoji=null; avatarRemoved=false; currentStars={};
+    document.getElementById('cancel-btn').onclick=closeModal;
+    wireFolderColorDot(); wireSheetForm();
+    backdrop.classList.add('open');
+    return;
+  }
   formEl.innerHTML=buildFormFields(item);
   wireAvatarForm(item);
   wireFolderColorDot();
@@ -2342,6 +2408,16 @@ formEl.addEventListener('submit',async(e)=>{
   item.name=(fd.get('name')||'').trim();
   item.folderId=fd.get('folderId')||null;
   item.avatarOpacity=Math.max(0,Math.min(1,Number(fd.get('avatarOpacity')??1)));
+  if(activeTab==='sheets'){
+    item.char=fd.get('sheet-char')||'';
+    item.pet=fd.get('sheet-pet')||'';
+    item.abilities=fd.getAll('cs-abilities');
+    item.objects=fd.getAll('cs-objects');
+    item.magic=!!fd.get('cs-magic');
+    item.effects=!!fd.get('cs-effects');
+    if(!item.name){ const c=(state.characters||[]).find(x=>x.id===item.char); item.name=(c&&c.name)||'Feuille'; }
+    window.__studioSelectedId=item.id;
+  }
   if(STAT_CARD_TABS.includes(activeTab)){
     item.stat=['intelligence','sens','vitesse','force'].includes(fd.get('ability-stat'))?fd.get('ability-stat'):'intelligence';
     item.modifier=Number(fd.get('ability-modifier'))||0;
@@ -2734,8 +2810,7 @@ statThemeFormEl.addEventListener('submit',async(e)=>{e.preventDefault();state.st
 
 /* ==================== PRINT ==================== */
 /* ==================== FEUILLE DE PERSONNAGE (nouvel onglet, 2 feuilles par A4 paysage) ==================== */
-const charSheets = []; let sheetWin = null;
-const csBackdrop = document.getElementById('charsheet-backdrop');
+let sheetWin = null, sheetPrintIds = [];
 const CS_SWORD = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:block"><path d="M7.9 13.9 17.9 3.9 21.7 2.3 20.1 6.1 10.1 16.1Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/><path d="M5.5 12.5 11.5 18.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.5 15.5 4.6 19.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="3.7" cy="20.3" r="1.6" fill="currentColor"/></svg>';
 const CS_SHIELD = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:block"><path d="M12 2.6 20 5.8v6.2c0 4.9-3.3 8.2-8 10-4.7-1.8-8-5.1-8-10V5.8z" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.6 16.6 8.4v3.8c0 3-2 5.2-4.6 6.5-2.6-1.3-4.6-3.5-4.6-6.5V8.4z" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
 function csCheckList(cat, selected){
@@ -2743,46 +2818,46 @@ function csCheckList(cat, selected){
   if(!items.length) return '<small>Aucun élément dans cette catégorie.</small>';
   return items.map(it=>`<label class="check" style="font-weight:500;margin:2px 0;"><input type="checkbox" name="cs-${cat}" value="${escapeHtml(it.id)}" ${selected.has(it.id)?'checked':''}> ${escapeHtml(it.name||'Sans nom')}</label>`).join('');
 }
-function openCharSheetModal(){
-  const byName = cat => (state[cat]||[]).slice().sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr'));
-  const firstSel = cat => (state[cat]||[]).find(i=>selectedIds.has(i.id));
-  const chars = byName('characters'), pets = byName('companions');
-  const selChar = firstSel('characters'), selPet = firstSel('companions');
-  document.getElementById('cs-char').innerHTML = `<option value="">— Choisir un personnage —</option>` + chars.map(c=>`<option value="${escapeHtml(c.id)}" ${selChar&&selChar.id===c.id?'selected':''}>${escapeHtml(c.name||'Sans nom')}${c.className?' · '+escapeHtml(c.className):''}</option>`).join('');
-  document.getElementById('cs-pet').innerHTML = `<option value="">— Aucun —</option>` + pets.map(c=>`<option value="${escapeHtml(c.id)}" ${selPet&&selPet.id===c.id?'selected':''}>${escapeHtml(c.name||'Sans nom')}${c.type?' · '+escapeHtml(c.type):''}</option>`).join('');
-  document.getElementById('cs-abilities').innerHTML = csCheckList('abilities', selectedIds);
-  document.getElementById('cs-objects').innerHTML = csCheckList('objects', selectedIds);
-  const info = document.getElementById('cs-queue-info');
-  info.style.display = charSheets.length ? '' : 'none';
-  info.textContent = charSheets.length ? `La planche contient déjà ${charSheets.length} feuille${charSheets.length>1?'s':''} (${Math.ceil(charSheets.length/2)} page${charSheets.length>2?'s':''} A4). La nouvelle feuille sera ajoutée à la suite.` : '';
-  document.getElementById('cs-clear').style.display = charSheets.length ? '' : 'none';
-  csBackdrop.classList.add('open');
+function csSheetCharName(sh){ const c=(state.characters||[]).find(x=>x.id===sh.char); return c ? (c.name||'Sans nom') : ''; }
+function csSheetMeta(sh){
+  const c=(state.characters||[]).find(x=>x.id===sh.char);
+  if(!c) return '⚠ personnage introuvable';
+  const n=(sh.abilities||[]).length+(sh.objects||[]).length;
+  return `${c.name||'Sans nom'} · ${n} élément${n>1?'s':''}`;
 }
-function closeCharSheetModal(){ csBackdrop.classList.remove('open'); }
-document.getElementById('btn-char-sheet').onclick = openCharSheetModal;
-document.getElementById('cs-cancel').onclick = closeCharSheetModal;
-csBackdrop.onclick = e=>{ if(e.target===csBackdrop) closeCharSheetModal(); };
-document.getElementById('cs-clear').onclick = async ()=>{ charSheets.length=0; closeCharSheetModal(); await renderSheetWindow(); };
-document.getElementById('cs-confirm').onclick = async ()=>{
-  const charId = document.getElementById('cs-char').value;
-  if(!charId){ alert('Choisis un personnage.'); return; }
-  const checked = cat => [...document.querySelectorAll(`input[name="cs-${cat}"]:checked`)].map(i=>i.value);
-  const cfg = { char:charId, pet:document.getElementById('cs-pet').value, abilities:checked('abilities'), objects:checked('objects'),
-    magic:document.getElementById('cs-magic').checked, effects:document.getElementById('cs-effects').checked };
-  // L'onglet est ouvert tout de suite (dans le clic), puis rempli une fois les illustrations converties.
+document.getElementById('btn-char-sheet').onclick = ()=>{
+  activeTab='sheets'; searchQuery=''; folderFilter=new Set(['__all']);
+  const si=document.getElementById('search-input'); if(si) si.value='';
+  renderAll(); openModal(null);
+};
+/* Ouvre l'onglet d'impression (A4 paysage, 2 feuilles par page) pour les feuilles données. Appelé directement depuis un clic. */
+function openSheetsPrint(ids){
   const w = window.open('', 'feuilles_personnage');
   if(!w){ alert("Le navigateur a bloqué l'ouverture du nouvel onglet : autorise les fenêtres pop-up pour cette page, puis réessaie."); return; }
-  sheetWin = w; charSheets.push(cfg); closeCharSheetModal();
-  try{ w.document.open(); w.document.write('<!doctype html><meta charset="utf-8"><title>Feuille de personnage</title><p style="font:16px system-ui;padding:24px">Préparation de la feuille…</p>'); w.document.close(); }catch(e){}
-  await renderSheetWindow();
-  try{ w.focus(); }catch(e){}
-};
-window.__sheetRemove = async i=>{ charSheets.splice(i,1); await renderSheetWindow(); };
-window.__sheetClear = async ()=>{ charSheets.length=0; await renderSheetWindow(); };
+  sheetWin = w;
+  const order = (state.sheets||[]).filter(x=>ids.includes(x.id)).sort((a,b)=>(a.name||'').localeCompare(b.name||'','fr',{sensitivity:'base',numeric:true}));
+  sheetPrintIds = order.map(x=>x.id);
+  try{ w.document.open(); w.document.write('<!doctype html><meta charset="utf-8"><title>Feuilles de personnage</title><p style="font:16px system-ui;padding:24px">Préparation des feuilles…</p>'); w.document.close(); }catch(e){}
+  renderSheetWindow().then(()=>{ try{ w.focus(); }catch(e){} });
+}
+window.__sheetRemove = async id=>{ sheetPrintIds = sheetPrintIds.filter(x=>x!==id); await renderSheetWindow(); };
+window.__sheetClear = async ()=>{ sheetPrintIds = []; await renderSheetWindow(); };
 async function renderSheetWindow(){
   const w = sheetWin; if(!w || w.closed) return;
   const html = await buildSheetsDocument();
   try{ w.document.open(); w.document.write(html); w.document.close(); }catch(e){ console.warn('Feuille de personnage',e); }
+}
+/* Aperçu dans l'application (Shadow DOM : le style de la feuille n'interfère pas avec celui de la page). */
+async function renderSheetPreview(item){
+  const tok = (window.__csPreviewTok = (window.__csPreviewTok||0)+1);
+  const html = await csSheetHtml(item);
+  const host = document.getElementById('cs-preview-host');
+  if(tok!==window.__csPreviewTok || !host) return;
+  if(!html){ host.innerHTML = '<div style="padding:20px;font:14px system-ui;color:#8a2b1d;">⚠ Le personnage de cette feuille n\'existe plus. Clique sur « Modifier » pour en choisir un autre.</div>'; return; }
+  const root = host.shadowRoot || host.attachShadow({mode:'open'});
+  root.innerHTML = `<style>${CS_SHEET_CSS}
+    :host{ display:block; } .cs-wrap{ font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; color:#2E2115; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+    .sheet{ background:#fffdf6; } .rm{ display:none !important; }</style><div class="cs-wrap">${html}</div>`;
 }
 async function csImg(item){
   const src = item ? avatarSrc(item) : ''; if(!src) return '';
@@ -2809,13 +2884,25 @@ function csPointChips(a, theme){
 }
 function csTotals(character, els, key){
   const base = Number(character.stats?.[key])||0;
-  const pts = pred => els.filter(pred).reduce((t,a)=> t + (a.stat===key?(Number(a.modifier)||0):0) + ((a.stat2 && a.stat2!==a.stat && a.stat2===key)?(Number(a.modifier2)||0):0), 0);
-  return { base, atk:pts(a=>a.attack), def:pts(a=>a.defensive), star:els.some(a=>a.defensive && a.defStar) };
+  // Points qu'un élément apporte à cette caractéristique (1re et 2e caractéristique de l'élément).
+  const own = a => (a.stat===key?(Number(a.modifier)||0):0) + ((a.stat2 && a.stat2!==a.stat && a.stat2===key)?(Number(a.modifier2)||0):0);
+  const sum = list => list.reduce((t,a)=>t+own(a),0);
+  // Défenses « non cumulables » (astérisque) : on ne compte que le meilleur bonus parmi elles, caractéristique par caractéristique.
+  const starVals = els.filter(a=>a.defensive && a.defStar).map(own).filter(v=>v!==0);
+  return {
+    base,
+    atk: sum(els.filter(a=>a.attack)),
+    def: sum(els.filter(a=>a.defensive && !a.defStar)),
+    star: starVals.length ? Math.max(...starVals) : null
+  };
 }
 function csCalc(kind, label, base, bonus, star){
-  const total = base + bonus + (star?1:0);
-  const formula = `${base}${bonus?` ${bonus>0?'+':'−'} ${Math.abs(bonus)}`:''}${star?' + 1*':''}`;
-  return `<div class="calc ${kind}" title="${escapeHtml(label)} = ${formula}"><span class="ci">${kind==='atk'?CS_SWORD:CS_SHIELD}</span><span class="cl">${label}<small>${formula}</small></span><b>${total}</b></div>`;
+  const hasStar = star!==null && star!==undefined;
+  const st = hasStar ? star : 0;
+  const total = base + bonus + st;
+  const formula = `${base}${bonus?` ${bonus>0?'+':'−'} ${Math.abs(bonus)}`:''}${hasStar?` ${st<0?'−':'+'} ${Math.abs(st)}*`:''}`;
+  const tip = `${label} = ${formula}${hasStar?' (* défenses non cumulables : seul le meilleur bonus est compté)':''}`;
+  return `<div class="calc ${kind}" title="${escapeHtml(tip)}"><span class="ci">${kind==='atk'?CS_SWORD:CS_SHIELD}</span><span class="cl">${label}<small>${formula}</small></span><b>${total}</b></div>`;
 }
 function csListHtml(items, withEffects, theme){
   return items.map(it=>{
@@ -2841,14 +2928,14 @@ async function csSheetHtml(cfg, idx){
   const cols = Object.keys(STAT_LABELS).map(k=>{
     const t = T[k]; let lines = '';
     if(k==='vitesse' || k==='force'){
-      lines = csCalc('atk','Attaque physique',t.base,t.atk,false) + csCalc('def','Défense physique',t.base,t.def,t.star);
+      lines = csCalc('atk','Attaque physique',t.base,t.atk,null) + csCalc('def','Défense physique',t.base,t.def,t.star);
     } else if(k==='intelligence' && cfg.magic){
-      lines = csCalc('atk','Attaque magique',t.base,t.atk,false) + csCalc('def','Défense magique',t.base,t.def,false);
+      lines = csCalc('atk','Attaque magique',t.base,t.atk,null) + csCalc('def','Défense magique',t.base,t.def,t.star);
     }
     return `<div class="col"><div class="sh" style="background:${statColorHex(theme,k)}"><span class="sn">${csStatGlyph(k)}${STAT_SHORT[k]}</span><b>${t.base}</b></div>${lines}</div>`;
   }).join('');
   return `<section class="sheet">
-    <button class="rm noprint" title="Retirer cette feuille de la planche" onclick="opener&&opener.__sheetRemove&&opener.__sheetRemove(${idx})">✕</button>
+    <button class="rm noprint" title="Retirer cette feuille de l'impression (elle reste enregistrée)" onclick="opener&&opener.__sheetRemove&&opener.__sheetRemove('${escapeHtml(cfg.id||'')}')">✕</button>
     <header class="hd"><h1 style="font-size:${nameSize}pt">${escapeHtml(ch.name||'Sans nom')}</h1>${ch.className?`<span class="cls">${escapeHtml(ch.className)}</span>`:''}</header>
     <div class="artwrap" style="height:${artH}mm;margin-bottom:${pet?9:0}mm">
       <div class="art">${csAvatarHtml(ch, chImg)}</div>
@@ -2860,18 +2947,8 @@ async function csSheetHtml(cfg, idx){
     ${objs.length ? `<div class="sec">Objets magiques</div><div class="list">${csListHtml(objs, cfg.effects, theme)}</div>` : ''}
   </section>`;
 }
-const CS_CSS = `
-@page{ size:A4 landscape; margin:0; }
+const CS_SHEET_CSS = `
 *{ box-sizing:border-box; }
-html,body{ margin:0; }
-body{ background:#8a8272; font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; color:#2E2115; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-.bar{ position:sticky; top:0; z-index:5; background:#2E2115; color:#fff; padding:8px 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; }
-.bar button{ font:600 13px system-ui; padding:6px 12px; border-radius:8px; border:0; background:#D9A441; color:#2E2115; cursor:pointer; }
-.bar button.g{ background:#5a4d3c; color:#fff; }
-.bar span{ opacity:.85; }
-.page{ width:297mm; height:210mm; background:#fffdf6; margin:12px auto; display:flex; position:relative; overflow:hidden; box-shadow:0 2px 14px rgba(0,0,0,.4); break-after:page; page-break-after:always; }
-.page:last-child{ break-after:auto; page-break-after:auto; }
-.page::after{ content:''; position:absolute; left:148.5mm; top:0; bottom:0; border-left:.25mm dashed #b9ad92; pointer-events:none; }
 .sheet{ width:148.5mm; height:210mm; padding:8mm 9mm; display:flex; flex-direction:column; position:relative; overflow:hidden; }
 .sheet.empty{ }
 .rm{ position:absolute; top:3mm; right:3mm; z-index:3; border:0; border-radius:50%; width:6mm; height:6mm; line-height:6mm; padding:0; background:#c0392b; color:#fff; font-size:10px; cursor:pointer; }
@@ -2907,26 +2984,44 @@ body{ background:#8a8272; font-family:system-ui,-apple-system,'Segoe UI',Roboto,
 .chip{ display:inline-flex; align-items:center; gap:.6mm; color:#fff; font-weight:800; font-size:7pt; border-radius:3mm; padding:.3mm 1.6mm; text-shadow:0 0 .5mm rgba(0,0,0,.4); }
 .fx{ font-size:6.3pt; color:#5c4e3a; line-height:1.25; margin-top:.4mm; }
 .none{ color:#a99b80; font-size:8pt; }
+`;
+const CS_CSS = `
+*{ box-sizing:border-box; }
+@page{ size:A4 landscape; margin:0; }
+html,body{ margin:0; }
+body{ background:#8a8272; font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; color:#2E2115; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
+.bar{ position:sticky; top:0; z-index:5; background:#2E2115; color:#fff; padding:8px 14px; display:flex; gap:10px; align-items:center; flex-wrap:wrap; font-size:13px; }
+.bar button{ font:600 13px system-ui; padding:6px 12px; border-radius:8px; border:0; background:#D9A441; color:#2E2115; cursor:pointer; }
+.bar button.g{ background:#5a4d3c; color:#fff; }
+.bar span{ opacity:.85; }
+.page{ width:297mm; height:210mm; background:#fffdf6; margin:12px auto; display:flex; position:relative; overflow:hidden; box-shadow:0 2px 14px rgba(0,0,0,.4); break-after:page; page-break-after:always; }
+.page:last-child{ break-after:auto; page-break-after:auto; }
+.page::after{ content:''; position:absolute; left:148.5mm; top:0; bottom:0; border-left:.25mm dashed #b9ad92; pointer-events:none; }
+`+CS_SHEET_CSS+`
 @media print{ body{ background:#fff; } .noprint,.bar{ display:none !important; } .page{ margin:0; box-shadow:none; } }
 `;
 async function buildSheetsDocument(){
-  // Retire les feuilles dont le personnage a été supprimé depuis.
-  for(let i=charSheets.length-1;i>=0;i--){ if(!(state.characters||[]).some(x=>x.id===charSheets[i].char)) charSheets.splice(i,1); }
+  const cfgs = sheetPrintIds.map(id=>(state.sheets||[]).find(x=>x.id===id)).filter(Boolean);
   const sheets = [];
-  for(let i=0;i<charSheets.length;i++){ const h = await csSheetHtml(charSheets[i], i); if(h) sheets.push(h); }
+  for(const c of cfgs){ const h = await csSheetHtml(c); if(h) sheets.push(h); }
   const pages = [];
   for(let i=0;i<sheets.length;i+=2){ pages.push(`<div class="page">${sheets[i]}${sheets[i+1]||'<section class="sheet empty"></section>'}</div>`); }
   const n = sheets.length;
   return `<!doctype html><html lang="fr"><head><meta charset="utf-8"><title>Feuille${n>1?'s':''} de personnage</title><style>${CS_CSS}</style></head><body>
     <div class="bar noprint"><button onclick="window.print()">🖨️ Imprimer</button>
-      <button class="g" onclick="opener&&opener.__sheetClear&&opener.__sheetClear()">🗑 Vider la planche</button>
+      <button class="g" onclick="opener&&opener.__sheetClear&&opener.__sheetClear()">🗑 Tout retirer de l'impression</button>
       <span>${n} feuille${n>1?'s':''} · ${Math.ceil(n/2)} page${n>2?'s':''} A4 paysage (2 feuilles par page). À l'impression : A4, paysage, marges « Aucune », « Graphiques d'arrière-plan » activés. Découpe selon le pointillé.</span></div>
-    ${pages.join('') || '<p style="color:#fff;padding:24px;font-size:15px">La planche est vide : retourne sur la page principale et clique sur « 📋 Feuille de personnage ».</p>'}
+    ${pages.join('') || '<p style="color:#fff;padding:24px;font-size:15px">Aucune feuille à imprimer : coche des feuilles dans l\'onglet « Feuilles de personnage » de l\'application, puis clique sur « Imprimer les feuilles ».</p>'}
   </body></html>`;
 }
 
 document.getElementById("btn-print-selection").onclick = ()=>{
-  if(selectedIds.size===0) return;
+  if(CATEGORIES[activeTab] && CATEGORIES[activeTab].sheet){
+    const ids = (state.sheets||[]).filter(x=>selectedIds.has(x.id)).map(x=>x.id);
+    if(ids.length) openSheetsPrint(ids);
+    return;
+  }
+  if(!selectionByCategory().length) return;
   openPrintOptions();
 };
 function isBlankMode(){ return document.getElementById("blank-mode").checked; }
@@ -2998,6 +3093,7 @@ async function printItems(ids, opts){
   const idSet = new Set(ids);
   const groups = [];
   Object.keys(CATEGORIES).forEach(cat=>{
+    if(CATEGORIES[cat].sheet) return;
     const items = (state[cat]||[]).filter(i=>idSet.has(i.id));
     if(items.length) groups.push({cat, items});
   });
@@ -3720,8 +3816,11 @@ function buildTextExport(){
         if(a.total) lines.push(`Usages au total (définitif) : ${a.total}`);
         if(a.cooldown) lines.push(`Rechargement : ${a.cooldown}`);
       } else {
-        lines.push(text('Description', item.description));
-        (Array.isArray(item.abilities)?item.abilities:[]).slice(0,3).map(normalizeAbility).forEach((a,i)=>{
+        if(cat==='sheets'){
+          const nm = ids => (ids||[]).map(id=>[...(state.abilities||[]),...(state.objects||[])].find(x=>x.id===id)).filter(Boolean).map(x=>x.name||'Sans nom').join(', ');
+          lines.push(text('Personnage', csSheetCharName(item)), text('Familier', ((state.companions||[]).find(c=>c.id===item.pet)||{}).name), text('Capacités', nm(item.abilities)), text('Objets magiques', nm(item.objects)));
+        } else lines.push(text('Description', item.description));
+        (cat!=='sheets' && Array.isArray(item.abilities)?item.abilities:[]).slice(0,3).map(normalizeAbility).forEach((a,i)=>{
           if(!a.title && !a.effect && !a.modifier && !a.stat2) return;
           lines.push(`Capacité ${i+1} : ${a.title||'(sans titre)'} — ${abilityMods(a)}${a.defensive?(a.defStar?' — défense*':' — défense'):''}${a.attack?' — attaque':''}${a.once===1?' — usage unique':a.once>1?` — ${a.once} usages max par rencontre`:''}${a.total?` — ${a.total} usage${a.total>1?'s':''} au total`:''}${a.cooldown?` — rechargement ${a.cooldown}`:''}`);
           const eff = text('    Effet', a.effect); if(eff) lines.push(eff);
@@ -4070,7 +4169,7 @@ const EMBEDDED_FIREBASE_CONFIG = {
   }
   const roCss=document.createElement('style');
   roCss.textContent='#ro-banner{background:#fff3cd;color:#5b4300;border:1px solid #e0c36a;border-radius:8px;margin:8px auto;padding:8px 12px;max-width:1100px;font:600 13px/1.4 system-ui,sans-serif;text-align:center}'
-   +'body.ro #btn-add,body.ro #btn-theme,body.ro #btn-manage-folders,body.ro #btn-stat-theme,body.ro #btn-import,body.ro #btn-seed,body.ro #btn-ai-generate,body.ro #btn-clear,body.ro #studio-edit,body.ro #studio-recenter,body.ro .studio-del,body.ro .studio-pan-hint,body.ro #add-folder-btn{display:none!important}'
+   +'body.ro #btn-add,body.ro #btn-char-sheet,body.ro #btn-theme,body.ro #btn-manage-folders,body.ro #btn-stat-theme,body.ro #btn-import,body.ro #btn-seed,body.ro #btn-ai-generate,body.ro #btn-clear,body.ro #studio-edit,body.ro #studio-recenter,body.ro .studio-del,body.ro .studio-pan-hint,body.ro #add-folder-btn{display:none!important}'
    +'body.ro .studio-preview-wrap .screen-print-card .p-frame.can-pan{cursor:default}';
   document.head.appendChild(roCss);
   ['openModal','openThemeModal','openStatThemeModal','openFoldersModal','openAiModal','deleteItem'].forEach(n=>{ const f=window[n]; if(typeof f==='function') window[n]=function(...a){ if(isRO()) return; return f.apply(this,a); }; });
