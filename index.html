@@ -1025,7 +1025,7 @@ function normalizeAbility(a){
     modifier2,
     title:String(a.title ?? '').trim(),
     effect:String(a.effect ?? '').trim(),
-    defensive: a.defensive===true || a.defensive==='on' || a.defensive==='true',
+    defensive: a.defensive===true || a.defensive==='on' || a.defensive==='true' || a.defStar===true || a.defStar==='on' || a.defStar==='true',
     attack: a.attack===true || a.attack==='on' || a.attack==='true',
     defStar: a.defStar===true || a.defStar==='on' || a.defStar==='true',
     cooldown: String(a.cooldown ?? '').trim().slice(0,6),
@@ -2101,8 +2101,7 @@ function buildAbilityFields(item){
         <label>Titre</label>
         <input type="text" name="ability-${i}-title" value="${escapeHtml(a.title)}" maxlength="50" placeholder="Ex. Bond fulgurant">
         ${cooldownOnceFieldsHtml('ability-'+i+'-', a)}
-        <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-defensive" ${a.defensive?'checked':''}> 🛡 Utilisable en défense</label>
-        <label class="check" style="margin-top:6px;margin-left:18px;"><input type="checkbox" name="ability-${i}-defstar" ${a.defStar?'checked':''}> 🛡* Non cumulable (astérisque)</label>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;"><span>🛡 Bouclier</span><select name="ability-${i}-shield" style="max-width:280px"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (+1, non cumulable)</option></select></div>
         <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-attack" ${a.attack?'checked':''}> ⚔ Attaque (inflige des dégâts)</label>
         <label>Effets</label>
         <textarea name="ability-${i}-effect" maxlength="260" rows="3" placeholder="Décris les effets de la capacité.">${escapeHtml(a.effect)}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div>
@@ -2132,8 +2131,7 @@ function buildColoringAbilityFields(item){
         </div>
         <label>Titre</label>
         <input type="text" name="ability-${i}-title" value="${escapeHtml(a.title)}" maxlength="50" placeholder="Ex. Bond fulgurant">
-        <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-defensive" ${a.defensive?'checked':''}> 🛡 Utilisable en défense</label>
-        <label class="check" style="margin-top:6px;margin-left:18px;"><input type="checkbox" name="ability-${i}-defstar" ${a.defStar?'checked':''}> 🛡* Non cumulable (astérisque)</label>
+        <div style="margin-top:6px;display:flex;align-items:center;gap:8px;font-weight:600;font-size:14px;"><span>🛡 Bouclier</span><select name="ability-${i}-shield" style="max-width:280px"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (+1, non cumulable)</option></select></div>
         <label class="check" style="margin-top:6px;"><input type="checkbox" name="ability-${i}-attack" ${a.attack?'checked':''}> ⚔ Attaque (inflige des dégâts)</label>
         <label>Effets</label>
         <textarea name="ability-${i}-effect" maxlength="260" rows="3" placeholder="Décris les effets de la capacité.">${escapeHtml(a.effect)}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div>
@@ -2187,7 +2185,7 @@ function buildFormFields(item){
     <div class="field"><label>Bonus / Malus</label><input type="number" name="ability-modifier" value="${a.modifier}" step="1" inputmode="numeric"></div>
     <div class="field ability-meta">${hybridStatFieldsHtml('ability', a)}<small>Combine deux caractéristiques : les bulles se cumulent et le champ affiche un dégradé entre les deux couleurs.</small></div>
     <div class="field"><label class="check"><input type="checkbox" name="ability-attack" ${a.attack?'checked':''}> ⚔ Attaque (inflige des dégâts)</label><small>Ajoute un symbole d’épée à droite du titre de la capacité, après le bouclier éventuel.</small></div>
-    ${activeTab==='traps'?'':`<div class="field"><label class="check"><input type="checkbox" name="ability-defensive" ${a.defensive?'checked':''}> 🛡 Utilisable en défense</label><label class="check" style="margin-left:18px;"><input type="checkbox" name="ability-defstar" ${a.defStar?'checked':''}> 🛡* Non cumulable (astérisque)</label><small>Ajoute un symbole de bouclier à droite du titre de la capacité (avant les éventuels minuteurs ; avec un astérisque si l’effet ne se cumule pas entre deux objets) et une nuance bleutée sur le cadre.</small></div>`}
+    ${activeTab==='traps'?'':`<div class="field"><label>🛡 Bouclier</label><select name="ability-shield"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (+1, non cumulable)</option></select><small>Ajoute un symbole de bouclier à droite du titre (avec un astérisque pour la variante « non cumulable », règle appliquée à la table) et une nuance bleutée sur le cadre. Se combine avec l’épée.</small></div>`}
     <div class="field">${cooldownOnceFieldsHtml('ability-', a)}</div>
     <div class="field"><label>${effectLabel}</label><textarea name="ability-effect" maxlength="500" rows="6" placeholder="${effectPlaceholder}">${escapeHtml(a.effect||item.description||'')}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div></div>`;
   }
@@ -2350,8 +2348,9 @@ formEl.addEventListener('submit',async(e)=>{
     item.stat2=['intelligence','sens','vitesse','force'].includes(fd.get('ability-stat2'))?fd.get('ability-stat2'):null;
     item.modifier2=item.stat2?(Number(fd.get('ability-modifier2'))||0):0;
     item.effect=(fd.get('ability-effect')||'').trim(); item.description=item.effect; delete item.title;
-    if(activeTab!=='traps' && fd.get('ability-defensive')) item.defensive=true; else delete item.defensive;
-    if(activeTab!=='traps' && fd.get('ability-defensive') && fd.get('ability-defstar')) item.defStar=true; else delete item.defStar;
+    const shSel=fd.get('ability-shield');
+    if(activeTab!=='traps' && (shSel==='plain'||shSel==='star')) item.defensive=true; else delete item.defensive;
+    if(activeTab!=='traps' && shSel==='star') item.defStar=true; else delete item.defStar;
     if(fd.get('ability-attack')) item.attack=true; else delete item.attack;
     applyTimerFields(item, fd, 'ability-');
     if(activeTab==='objects') item.rarity=normalizeRarity(fd.get('rarity'));
@@ -2368,7 +2367,7 @@ formEl.addEventListener('submit',async(e)=>{
   if(activeTab==='companions'||activeTab==='creatures'){
     item.type=fd.get('type')||'';
     item.stats=Object.fromEntries(Object.keys(STAT_LABELS).map(k=>[k,Number(fd.get('stat-'+k))||0]));
-    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),stat2:fd.get(`ability-${i}-stat2`),modifier2:Number(fd.get(`ability-${i}-modifier2`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:!!fd.get(`ability-${i}-defensive`),attack:!!fd.get(`ability-${i}-attack`),defStar:!!fd.get(`ability-${i}-defensive`)&&!!fd.get(`ability-${i}-defstar`),cooldown:fd.get(`ability-${i}-cooldown`),once:Number(fd.get(`ability-${i}-once`))||0,total:Number(fd.get(`ability-${i}-total`))||0})).filter(a=>a.title||a.effect);
+    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),stat2:fd.get(`ability-${i}-stat2`),modifier2:Number(fd.get(`ability-${i}-modifier2`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:['plain','star'].includes(fd.get(`ability-${i}-shield`)),attack:!!fd.get(`ability-${i}-attack`),defStar:fd.get(`ability-${i}-shield`)==='star',cooldown:fd.get(`ability-${i}-cooldown`),once:Number(fd.get(`ability-${i}-once`))||0,total:Number(fd.get(`ability-${i}-total`))||0})).filter(a=>a.title||a.effect);
     item.description=(fd.get('description')||'').trim();
     if(activeTab==='creatures') item.dangerLevel=currentStars.dangerLevel||0;
   }
@@ -2383,7 +2382,7 @@ formEl.addEventListener('submit',async(e)=>{
   }
   if(activeTab==='coloring_companions'){
     // Capacités facultatives pour la feuille à dessiner : les champs laissés vides restent des lignes/bulles à remplir à la main.
-    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:!!fd.get(`ability-${i}-defensive`),attack:!!fd.get(`ability-${i}-attack`),defStar:!!fd.get(`ability-${i}-defensive`)&&!!fd.get(`ability-${i}-defstar`)})).filter(a=>a.title||a.effect||a.modifier);
+    item.abilities=Array.from({length:3},(_,i)=>normalizeAbility({stat:fd.get(`ability-${i}-stat`),modifier:Number(fd.get(`ability-${i}-modifier`)),title:fd.get(`ability-${i}-title`),effect:fd.get(`ability-${i}-effect`),defensive:['plain','star'].includes(fd.get(`ability-${i}-shield`)),attack:!!fd.get(`ability-${i}-attack`),defStar:fd.get(`ability-${i}-shield`)==='star'})).filter(a=>a.title||a.effect||a.modifier);
   }
   if(activeTab==='characters'){
     item.className=(fd.get('className')||'').trim();
