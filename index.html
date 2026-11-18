@@ -2196,7 +2196,7 @@ function buildFormFields(item){
     <div class="field ability-meta">${hybridStatFieldsHtml('ability', a)}<small>Combine deux caractéristiques : les bulles se cumulent et le champ affiche un dégradé entre les deux couleurs.</small></div>
     <div class="field"><label class="check"><input type="checkbox" name="ability-attack" ${a.attack?'checked':''}> ⚔ Attaque (inflige des dégâts)</label><small>Ajoute un symbole d’épée à droite du titre de la capacité, après le bouclier éventuel.</small></div>
     ${activeTab==='objects'?`<div class="field"><label class="check"><input type="checkbox" name="ability-twohanded" ${a.twoHanded?'checked':''}> ✋✋ Arme à deux mains</label><small>Ajoute un symbole « deux mains » : un bouclier ou une seconde arme ne peuvent pas être portés en même temps. Sur la feuille de personnage, un avertissement s’affiche en cas de conflit.</small></div>`:''}
-    ${activeTab==='abilities'?`<div class="field"><label class="check"><input type="checkbox" name="ability-magical" ${a.magical?'checked':''}> ✨ Capacité magique</label><small>Ajoute un symbole magique. Sur la feuille de personnage, les lignes d’attaque et de défense magiques (INT) ne s’affichent que si au moins une capacité magique est choisie.</small></div>`:''}
+    ${(activeTab==='abilities'||activeTab==='objects')?`<div class="field"><label class="check"><input type="checkbox" name="ability-magical" ${a.magical?'checked':''}> ✨ Sort (attaque magique)</label><small>Ajoute un symbole de sort. Sur la feuille de personnage, l’attaque magique (INT) est définie par les éléments portant ce symbole, indépendamment de l’attaque des armes. Les lignes magiques n’apparaissent que si un élément choisi est un sort.</small></div>`:''}
     ${(activeTab==='abilities'||activeTab==='objects')?`<div class="field"><label class="check"><input type="checkbox" name="ability-ranged" ${a.ranged?'checked':''}> 🏹 Attaque à distance</label><small>Ajoute un symbole d’arc. Sur la feuille de personnage, la ligne d’attaque à distance (VIT) ne s’affiche que si au moins un élément choisi porte ce symbole avec un bonus en vitesse.</small></div>`:''}
     ${activeTab==='traps'?'':`<div class="field"><label>🛡 Bouclier</label><select name="ability-shield"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (non cumulable)</option></select><small>Ajoute un symbole de bouclier à droite du titre (avec un astérisque pour la variante « non cumulable » : sur la feuille de personnage, seul le meilleur bonus parmi les défenses à astérisque est compté pour chaque caractéristique) et une nuance bleutée sur le cadre. Se combine avec l’épée.</small></div>`}
     <div class="field">${cooldownOnceFieldsHtml('ability-', a)}</div>
@@ -2298,7 +2298,7 @@ function buildSheetFormFields(item){
     <select name="sheet-pet"><option value="">— Aucun —</option>${byName('companions').map(c=>`<option value="${escapeHtml(c.id)}" ${selPet===c.id?'selected':''}>${escapeHtml(c.name||'Sans nom')}${c.type?' · '+escapeHtml(c.type):''}</option>`).join('')}</select>
   </div>
   <div class="field"><label>Capacités</label>
-    <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('abilities',selAbil)}</div><small>Les lignes d'attaque et de défense magiques (INT) n'apparaissent que si au moins une capacité choisie est marquée ✨ magique.</small></div>
+    <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('abilities',selAbil)}</div><small>L'attaque magique (INT) est définie par les éléments marqués ✨ (sorts) ; les lignes magiques n'apparaissent que si au moins une capacité ou objet choisi est un sort.</small></div>
   <div class="field"><label>Objets magiques (facultatif)</label>
     <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('objects',selObj)}</div>
     <small>Attaque : les bonus des capacités s'additionnent, ceux des armes (objets d'attaque) ne se cumulent pas — pour chaque caractéristique, seul le meilleur est compté. Défense : les bonus s'additionnent, sauf ceux des défenses à astérisque (meilleur bonus seulement). En VIT, l'attaque/défense physique s'affiche si un élément y contribue ; l'attaque à distance est une ligne distincte (non cumulable avec la physique), affichée si un élément choisi est marqué 🏹 avec un bonus en vitesse.</small>
@@ -2445,7 +2445,7 @@ formEl.addEventListener('submit',async(e)=>{
     if(activeTab!=='traps' && shSel==='star') item.defStar=true; else delete item.defStar;
     if(fd.get('ability-attack')) item.attack=true; else delete item.attack;
     if(activeTab==='objects' && fd.get('ability-twohanded')) item.twoHanded=true; else delete item.twoHanded;
-    if(activeTab==='abilities' && fd.get('ability-magical')) item.magical=true; else delete item.magical;
+    if((activeTab==='abilities'||activeTab==='objects') && fd.get('ability-magical')) item.magical=true; else delete item.magical;
     if((activeTab==='abilities'||activeTab==='objects') && fd.get('ability-ranged')) item.ranged=true; else delete item.ranged;
     applyTimerFields(item, fd, 'ability-');
     if(activeTab==='objects') item.rarity=normalizeRarity(fd.get('rarity'));
@@ -2831,6 +2831,7 @@ statThemeFormEl.addEventListener('submit',async(e)=>{e.preventDefault();state.st
 /* ==================== FEUILLE DE PERSONNAGE (nouvel onglet, 2 feuilles par A4 paysage) ==================== */
 let sheetWin = null, sheetPrintIds = [];
 const CS_SWORD = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:block"><path d="M7.9 13.9 17.9 3.9 21.7 2.3 20.1 6.1 10.1 16.1Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/><path d="M5.5 12.5 11.5 18.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.5 15.5 4.6 19.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="3.7" cy="20.3" r="1.6" fill="currentColor"/></svg>';
+const CS_STAR = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:block"><path d="M10 2.5 12.2 9 18.5 11.2 12.2 13.4 10 20 7.8 13.4 1.5 11.2 7.8 9Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/><path d="M19 2.5 19.9 5 22.4 5.9 19.9 6.8 19 9.3 18.1 6.8 15.6 5.9 18.1 5Z" fill="currentColor"/></svg>';
 const CS_BOW = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:block"><path d="M6 2.8c9 3.2 9 15.2 0 18.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M6 2.8V21.2" fill="none" stroke="currentColor" stroke-width="1"/><path d="M2.5 12H21.5M17.5 8.2 21.5 12 17.5 15.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg>';
 const CS_SHIELD = '<svg viewBox="0 0 24 24" width="1em" height="1em" aria-hidden="true" style="display:block"><path d="M12 2.6 20 5.8v6.2c0 4.9-3.3 8.2-8 10-4.7-1.8-8-5.1-8-10V5.8z" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.6 16.6 8.4v3.8c0 3-2 5.2-4.6 6.5-2.6-1.3-4.6-3.5-4.6-6.5V8.4z" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/></svg>';
 function csCheckList(cat, selected){
@@ -2910,7 +2911,8 @@ function csTotals(character, els, key, mode){
   const best = vals => vals.length ? Math.max(...vals) : null;
   // Attaque : les capacités s'additionnent ; les armes (objets d'attaque) ne se cumulent pas : seul le meilleur bonus par caractéristique compte.
   // Deux familles d'attaque distinctes, qui ne se cumulent pas entre elles : physique (mêlée, en FOR ou VIT) et à distance (éléments marqués 🏹).
-  const atkEls = els.filter(a=> mode==='ranged' ? a.ranged : (a.attack && !a.ranged));
+  // Une 3e famille, l'attaque magique (éléments marqués ✨ sort), se lit sous INT.
+  const atkEls = els.filter(a=> mode==='ranged' ? a.ranged : mode==='magic' ? a.magical : (a.attack && !a.ranged && !a.magical));
   const weaponVals = atkEls.filter(a=>a._obj).map(own).filter(v=>v!==0);
   // Défense : bonus cumulables, sauf ceux des défenses à astérisque (meilleur bonus seulement).
   const starVals = els.filter(a=>a.defensive && a.defStar).map(own).filter(v=>v!==0);
@@ -2957,7 +2959,7 @@ async function csSheetHtml(cfg, idx){
   const els = [...abil.map(x=>({...normalizeAbility(x), _obj:false})), ...objEls];
   const conflict = csTwoHandConflict(objEls);
   const hasRanged = els.some(a=>a.ranged && (a.stat==='vitesse' || a.stat2==='vitesse')); // ligne à distance (VIT) seulement si un élément porte le symbole d'arc en vitesse
-  const hasMagic = els.some(a=>!a._obj && a.magical); // lignes magiques (INT) seulement pour les personnages ayant une capacité magique
+  const hasMagic = els.some(a=>a.magical); // lignes magiques (INT) seulement pour les personnages ayant une capacité magique
   const theme = getTheme('characters');
   const [chImg, petImg] = await Promise.all([csImg(ch), csImg(pet)]);
   const T = {}; Object.keys(STAT_LABELS).forEach(k=>{ T[k]=csTotals(ch, els, k); });
@@ -2974,11 +2976,15 @@ async function csSheetHtml(cfg, idx){
       const touchV = a => a.stat==='vitesse' || a.stat2==='vitesse';
       const r = csTotals(ch, els, 'vitesse', 'ranged');
       const rn = r.weapons>1 ? 'armes non cumulables : seul le meilleur bonus est compté' : '';
-      if(els.some(a=>a.attack && !a.ranged && touchV(a))) lines += csCalc('atk','Attaque physique',t.base,t.atk,null,wn);
+      if(els.some(a=>a.attack && !a.ranged && !a.magical && touchV(a))) lines += csCalc('atk','Attaque physique',t.base,t.atk,null,wn);
       if(els.some(a=>a.defensive && touchV(a))) lines += csCalc('def','Défense physique',t.base,t.def,t.star);
       if(hasRanged) lines += csCalc('atk','Attaque à distance',r.base,r.atk,null,rn,CS_BOW);
-    } else if(k==='intelligence' && hasMagic){
-      lines = csCalc('atk','Attaque magique',t.base,t.atk,null,wn) + csCalc('def','Défense magique',t.base,t.def,t.star);
+    } else if(k==='intelligence'){
+      // En INT : l'attaque magique est définie par les éléments marqués ✨ (sorts), pas par l'attaque des armes.
+      const m = csTotals(ch, els, 'intelligence', 'magic');
+      const mn = m.weapons>1 ? 'objets non cumulables : seul le meilleur bonus est compté' : '';
+      if(els.some(a=>a.magical && (a.stat==='intelligence' || a.stat2==='intelligence'))) lines += csCalc('atk','Attaque magique',m.base,m.atk,null,mn,CS_STAR);
+      if(hasMagic) lines += csCalc('def','Défense magique',m.base,m.def,m.star);
     }
     return `<div class="col"><div class="sh" style="background:${statColorHex(theme,k)}"><span class="sn">${csStatGlyph(k)}${STAT_SHORT[k]}</span><b>${t.base}</b></div>${lines}</div>`;
   }).join('');
@@ -3470,7 +3476,7 @@ function cooldownHtml(x){
     h += `<span class="p-ranged-icon" title="Attaque à distance" style="${sws()}"><svg viewBox="0 0 24 24" width="1.4em" height="1.4em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M6 2.8c9 3.2 9 15.2 0 18.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M6 2.8V21.2" fill="none" stroke="currentColor" stroke-width="1"/><path d="M2.5 12H21.5M17.5 8.2 21.5 12 17.5 15.8" fill="none" stroke="currentColor" stroke-width="1.9" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
   }
   if(x.magical){
-    h += `<span class="p-magic-icon" title="Capacité magique" style="${sws()}"><svg viewBox="0 0 24 24" width="1.4em" height="1.4em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M10 2.5 12.2 9 18.5 11.2 12.2 13.4 10 20 7.8 13.4 1.5 11.2 7.8 9Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/><path d="M19 2.5 19.9 5 22.4 5.9 19.9 6.8 19 9.3 18.1 6.8 15.6 5.9 18.1 5Z" fill="currentColor"/></svg></span>`;
+    h += `<span class="p-magic-icon" title="Sort (attaque magique)" style="${sws()}"><svg viewBox="0 0 24 24" width="1.4em" height="1.4em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M10 2.5 12.2 9 18.5 11.2 12.2 13.4 10 20 7.8 13.4 1.5 11.2 7.8 9Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/><path d="M19 2.5 19.9 5 22.4 5.9 19.9 6.8 19 9.3 18.1 6.8 15.6 5.9 18.1 5Z" fill="currentColor"/></svg></span>`;
   }
   if(x.twoHanded){
     h += `<span class="p-2h-icon" title="Arme à deux mains : bouclier et seconde arme interdits" style="${sws()}"><svg viewBox="0 0 24 24" width="1.45em" height="1.45em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M12 1.4 14.4 4.4V12.6H9.6V4.4Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/><path d="M6.2 13H17.8" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M12 13V22" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"/><circle cx="12" cy="16.1" r="2" fill="currentColor" stroke="#fff" stroke-width="1"/><circle cx="12" cy="20" r="2" fill="currentColor" stroke="#fff" stroke-width="1"/></svg></span>`;
@@ -3872,7 +3878,7 @@ function buildTextExport(){
         if(cat==='abilities' || cat==='objects') lines.push(`Utilisable en défense : ${a.defensive?(a.defStar?'oui (non cumulable)':'oui'):'non'}`);
         lines.push(`Attaque : ${a.attack?'oui':'non'}`);
         if(cat==='objects') lines.push(`Arme à deux mains : ${a.twoHanded?'oui':'non'}`);
-        if(cat==='abilities') lines.push(`Capacité magique : ${a.magical?'oui':'non'}`);
+        if(cat==='abilities'||cat==='objects') lines.push(`Sort (attaque magique) : ${a.magical?'oui':'non'}`);
         if(cat==='abilities'||cat==='objects') lines.push(`Attaque à distance : ${a.ranged?'oui':'non'}`);
         lines.push(text('Effet', a.effect || item.description));
         if(a.once) lines.push(a.once===1?'Usage unique : oui':`Usages max par rencontre : ${a.once}`);
