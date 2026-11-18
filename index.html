@@ -2958,7 +2958,7 @@ function csTwoHandConflict(objEls){
 function csEffectLines(e, elsAll, ch, ctx, theme){
   const own = (a,k) => (a.stat===k?(Number(a.modifier)||0):0) + ((a.stat2 && a.stat2!==a.stat && a.stat2===k)?(Number(a.modifier2)||0):0);
   const baseOf = k => Number(ch.stats?.[k])||0;
-  const els = elsAll.filter(a=>!a.magicLink); // les éléments « liés à la magie » n'appliquent aucun bonus
+  const els = elsAll; // les bonus s'appliquent selon les symboles de chaque élément (🔮 ne fait qu'afficher les lignes magiques)
   const abil = els.filter(a=>!a._obj), objs = els.filter(a=>a._obj);
   const nm = a => a.name||'Sans nom';
   const atkSel = (a,mode) => mode==='ranged' ? a.ranged : mode==='magic' ? a.magical : (a.attack && !a.ranged && !a.magical);
@@ -2975,17 +2975,17 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
   };
   const atkLine = (key,label,mode,allowed) => {
     const ks = e.magicLink ? allowed : eKeys.filter(k=>allowed.includes(k));
-    const names = uniq([...abil.filter(a=>atkSel(a,mode) && ks.some(k=>own(a,k)!==0)).map(nm), ...((!e.magicLink && e._obj)?[nm(e)]:[])]);
-    push(key,'atk',label,ks,names,k=>baseOf(k)+sumOwn(abil.filter(a=>atkSel(a,mode)),k)+((!e.magicLink&&e._obj)?own(e,k):0),' ou ',false);
+    const names = uniq([...abil.filter(a=>atkSel(a,mode) && ks.some(k=>own(a,k)!==0)).map(nm), ...((e._obj && atkSel(e,mode))?[nm(e)]:[])]);
+    push(key,'atk',label,ks,names,k=>baseOf(k)+sumOwn(abil.filter(a=>atkSel(a,mode)),k)+((e._obj && atkSel(e,mode))?own(e,k):0),' ou ',false);
   };
   const defLine = (key,label,k) => {
     const plainA = abil.filter(a=>a.defensive && !a.defStar), plainO = objs.filter(a=>a.defensive && !a.defStar);
-    const star = !e.magicLink && !!e.defStar;
-    const names = uniq([...plainA.filter(a=>own(a,k)!==0).map(nm), ...((!e.magicLink&&e._obj)?plainO.filter(a=>own(a,k)!==0).map(nm):[]), ...(star?[nm(e)]:[])]);
-    push(key,'def',label,[k],names,()=>baseOf(k)+sumOwn(plainA,k)+((!e.magicLink&&e._obj)?sumOwn(plainO,k):0)+(star?own(e,k):0),' ou ',star);
+    const star = !!e.defStar && !!e.defensive;
+    const names = uniq([...plainA.filter(a=>own(a,k)!==0).map(nm), ...(e._obj?plainO.filter(a=>own(a,k)!==0).map(nm):[]), ...(star?[nm(e)]:[])]);
+    push(key,'def',label,[k],names,()=>baseOf(k)+sumOwn(plainA,k)+(e._obj?sumOwn(plainO,k):0)+(star?own(e,k):0),' ou ',star);
   };
   if(e.magicLink){
-    // Sa ligne à son nom applique tout de même ses bonus ; seules les lignes magiques (INT) les ignorent.
+    // 🔮 affiche les deux lignes magiques (INT) ; les bonus de l'élément s'y appliquent selon ses symboles (✨ attaque, bouclier = défense).
     if(!e.hideLine) push('name','nm',nm(e),eKeys,[nm(e)],k=>baseOf(k)+own(e,k),' et ',false);
     atkLine('atkmagic','Attaque magique','magic',['intelligence']);
     defLine('defmagic','Défense magique','intelligence');
