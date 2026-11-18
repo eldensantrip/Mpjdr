@@ -1005,6 +1005,7 @@ function normalizeAbility(a){
     magical: a.magical===true || a.magical==='on' || a.magical==='true',
     ranged: a.ranged===true || a.ranged==='on' || a.ranged==='true',
     magicLink: a.magicLink===true || a.magicLink==='on' || a.magicLink==='true',
+    hideLine: a.hideLine===true || a.hideLine==='on' || a.hideLine==='true',
     cooldown: String(a.cooldown ?? '').trim().slice(0,6),
     once: (a.once===true || a.once==='on' || a.once==='true') ? 1 : Math.max(0, Math.min(9, Math.floor(Number(a.once)) || 0)),
     total: (a.total===true || a.total==='on' || a.total==='true') ? 1 : Math.max(0, Math.min(9, Math.floor(Number(a.total)) || 0))
@@ -2199,6 +2200,7 @@ function buildFormFields(item){
     ${activeTab==='objects'?`<div class="field"><label class="check"><input type="checkbox" name="ability-twohanded" ${a.twoHanded?'checked':''}> ✋✋ Arme à deux mains</label><small>Ajoute un symbole « deux mains » : un bouclier ou une seconde arme ne peuvent pas être portés en même temps. Sur la feuille de personnage, un avertissement s’affiche en cas de conflit.</small></div>`:''}
     ${(activeTab==='abilities'||activeTab==='objects')?`<div class="field"><label class="check"><input type="checkbox" name="ability-magical" ${a.magical?'checked':''}> ✨ Sort (attaque magique)</label><small>Ajoute un symbole de sort. Sur la feuille de personnage, l’attaque magique (INT) est définie par les éléments portant ce symbole, indépendamment de l’attaque des armes. Les lignes magiques n’apparaissent que si un élément choisi est un sort.</small></div>`:''}
     ${(activeTab==='abilities'||activeTab==='objects')?`<div class="field"><label class="check"><input type="checkbox" name="ability-magiclink" ${a.magicLink?'checked':''}> 🔮 Liée à la magie</label><small>Ajoute un symbole de cristal. Sur la feuille de personnage, les lignes d’attaque et de défense magiques (INT) s’affichent, mais les bonus de cet élément ne sont pas appliqués (utile pour une capacité qui donne accès à la magie sans être un sort).</small></div>`:''}
+    ${(activeTab==='abilities'||activeTab==='objects')?`<div class="field"><label class="check"><input type="checkbox" name="ability-showline" ${a.hideLine?'':'checked'}> 📝 Afficher sa ligne de bonus sur la feuille</label><small>Sur la feuille de personnage, ajoute une ligne à son nom qui applique ses bonus, hors symboles. Décoche pour ne garder que ses lignes d’attaque, de parade, etc.</small></div>`:''}
     ${(activeTab==='abilities'||activeTab==='objects')?`<div class="field"><label class="check"><input type="checkbox" name="ability-ranged" ${a.ranged?'checked':''}> 🏹 Attaque à distance</label><small>Ajoute un symbole d’arc. Sur la feuille de personnage, la ligne d’attaque à distance (VIT) ne s’affiche que si au moins un élément choisi porte ce symbole avec un bonus en vitesse.</small></div>`:''}
     ${activeTab==='traps'?'':`<div class="field"><label>🛡 Bouclier</label><select name="ability-shield"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (non cumulable)</option></select><small>Ajoute un symbole de bouclier à droite du titre (avec un astérisque pour la variante « non cumulable » : sur la feuille de personnage, seul le meilleur bonus parmi les défenses à astérisque est compté pour chaque caractéristique) et une nuance bleutée sur le cadre. Se combine avec l’épée.</small></div>`}
     <div class="field">${cooldownOnceFieldsHtml('ability-', a)}</div>
@@ -2449,6 +2451,7 @@ formEl.addEventListener('submit',async(e)=>{
     if(activeTab==='objects' && fd.get('ability-twohanded')) item.twoHanded=true; else delete item.twoHanded;
     if((activeTab==='abilities'||activeTab==='objects') && fd.get('ability-magical')) item.magical=true; else delete item.magical;
     if((activeTab==='abilities'||activeTab==='objects') && fd.get('ability-magiclink')) item.magicLink=true; else delete item.magicLink;
+    if((activeTab==='abilities'||activeTab==='objects') && !fd.get('ability-showline')) item.hideLine=true; else delete item.hideLine;
     if((activeTab==='abilities'||activeTab==='objects') && fd.get('ability-ranged')) item.ranged=true; else delete item.ranged;
     applyTimerFields(item, fd, 'ability-');
     if(activeTab==='objects') item.rarity=normalizeRarity(fd.get('rarity'));
@@ -2987,7 +2990,7 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
     return out;
   }
   // Ligne au nom de l'élément : ses bonus, hors symboles.
-  push('name','nm',nm(e),eKeys,[nm(e)],k=>baseOf(k)+own(e,k),' et ',false);
+  if(!e.hideLine) push('name','nm',nm(e),eKeys,[nm(e)],k=>baseOf(k)+own(e,k),' et ',false);
   if(e.attack && !e.ranged && !e.magical) atkLine('atkphys','Attaque physique',undefined,['force','vitesse']);
   if(e.ranged) atkLine('atkranged','Attaque à distance','ranged',['vitesse']);
   if(e.magical) atkLine('atkmagic','Attaque magique','magic',['intelligence']);
