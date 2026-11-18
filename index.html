@@ -2985,6 +2985,8 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
     push(key,'def',label,[k],names,()=>baseOf(k)+sumOwn(plainA,k)+((!e.magicLink&&e._obj)?sumOwn(plainO,k):0)+(star?own(e,k):0),' ou ',star);
   };
   if(e.magicLink){
+    // Sa ligne à son nom applique tout de même ses bonus ; seules les lignes magiques (INT) les ignorent.
+    if(!e.hideLine) push('name','nm',nm(e),eKeys,[nm(e)],k=>baseOf(k)+own(e,k),' et ',false);
     atkLine('atkmagic','Attaque magique','magic',['intelligence']);
     defLine('defmagic','Défense magique','intelligence');
     return out;
