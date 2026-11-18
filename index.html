@@ -2947,26 +2947,39 @@ function csTwoHandConflict(objEls){
   if(others.length) return `« ${th[0].name||'Sans nom'} » se porte à deux mains : incompatible avec ${others.map(o=>'« '+(o.name||'Sans nom')+' »').join(', ')} (bouclier ou seconde arme).`;
   return '';
 }
-/* Détail des effets d'un élément : une ligne par type d'attaque / parade et par caractéristique, avec le total de la caractéristique. */
-function csEffectLines(e, elsAll, ch, ctx){
+/* Détail des effets d'un élément : une ligne par type d'effet (attaque physique, parade…), formule en noms d'éléments,
+   et une pastille par caractéristique avec le total du personnage. */
+function csEffectLines(e, elsAll, ch, ctx, theme){
   const own = (a,k) => (a.stat===k?(Number(a.modifier)||0):0) + ((a.stat2 && a.stat2!==a.stat && a.stat2===k)?(Number(a.modifier2)||0):0);
   const els = elsAll.filter(a=>!a.magicLink); // les éléments « liés à la magie » n'appliquent aucun bonus
+  const FAM = { phys:['force','vitesse'], ranged:['vitesse'], magic:['intelligence'] };
+  const atkSel = (a,mode) => mode==='ranged' ? a.ranged : mode==='magic' ? a.magical : (a.attack && !a.ranged && !a.magical);
   const out = [];
-  const add = (kind,label,k,mode,starFlag) => {
-    const t = csTotals(ch, els, k, mode);
-    const cap = kind==='atk' ? t.capAtk : t.capDef;
-    const obj = e._obj ? (kind==='atk' ? t.objAtk : t.objDef) : 0; // une capacité n'affiche que le total « capacité » ; un objet affiche capacité + objet
-    const star = starFlag!==undefined ? starFlag : (kind==='def' ? !!e.defStar : (!!e._obj && t.weapons>1));
+  const add = (kind,label,fam,mode,link) => {
+    const stats = FAM[fam];
+    const touched = link ? stats : stats.filter(k=>own(e,k)!==0);
+    if(!touched.length) return;
+    let star = !link && kind==='def' && !!e.defStar;
+    const pills = stats.map(k=>{
+      if(!touched.includes(k)) return '<span class="pill empty"></span>';
+      const t = csTotals(ch, els, k, mode);
+      const cap = kind==='atk' ? t.capAtk : t.capDef;
+      const obj = (!link && e._obj) ? (kind==='atk' ? t.objAtk : t.objDef) : 0; // capacité : total « capacité » ; objet : capacité + objet
+      if(!link && kind==='atk' && e._obj && t.weapons>1) star = true;
+      return `<span class="pill" style="--pc:${statColorHex(theme,k)}">${t.base+cap+obj}</span>`;
+    }).join('');
+    // Éléments qui contribuent à la formule : les capacités concernées, puis l'objet lui-même.
+    const names = els.filter(a=>!a._obj && (kind==='atk' ? atkSel(a,mode) : (a.defensive && !a.defStar)) && stats.some(k=>own(a,k)!==0)).map(a=>a.name||'Sans nom');
+    if(!link && e._obj && !names.includes(e.name||'Sans nom')) names.push(e.name||'Sans nom');
     if(star) ctx.star = true;
-    const f = `${STAT_SHORT[k]}${cap?' + bonus capacité':''}${obj?' + bonus objet':''}`;
-    out.push(`<div class="eff ${kind}"><span class="el">${label}${star?' *':''}</span><span class="ef">${f}</span><b>= ${t.base+cap+obj}</b></div>`);
+    const f = stats.map(k=>STAT_SHORT[k]).join(' ou ') + names.map(n=>' + '+escapeHtml(n)).join('');
+    out.push(`<div class="eff ${kind}"><span class="el">${label}${star?' *':''}</span><span class="ef">${f}</span><span class="pills">${pills}</span></div>`);
   };
-  if(e.magicLink){ add('atk','Attaque magique','intelligence','magic',false); add('def','Défense magique','intelligence',undefined,false); return out; }
-  const keys = [...new Set([e.stat,e.stat2].filter(Boolean))].filter(k=>STAT_SHORT[k] && own(e,k)!==0);
-  if(e.attack && !e.ranged && !e.magical) keys.filter(k=>k==='force'||k==='vitesse').forEach(k=>add('atk','Attaque physique',k));
-  if(e.ranged && keys.includes('vitesse')) add('atk','Attaque à distance','vitesse','ranged');
-  if(e.magical && keys.includes('intelligence')) add('atk','Attaque magique','intelligence','magic');
-  if(e.defensive) keys.forEach(k=>{ if(k==='force'||k==='vitesse') add('def','Parade physique',k); else if(k==='intelligence') add('def','Défense magique',k); });
+  if(e.magicLink){ add('atk','Attaque magique','magic','magic',true); add('def','Défense magique','magic',undefined,true); return out; }
+  if(e.attack && !e.ranged && !e.magical) add('atk','Attaque physique','phys');
+  if(e.ranged) add('atk','Attaque à distance','ranged','ranged');
+  if(e.magical) add('atk','Attaque magique','magic','magic');
+  if(e.defensive){ add('def','Parade physique','phys'); add('def','Défense magique','magic'); }
   return out;
 }
 function csListHtml(items, withEffects, theme, elList, lineFn){
@@ -2984,7 +2997,7 @@ async function csSheetHtml(cfg, idx){
   const abil = (cfg.abilities||[]).map(id=>(state.abilities||[]).find(x=>x.id===id)).filter(Boolean);
   const objs = (cfg.objects||[]).map(id=>(state.objects||[]).find(x=>x.id===id)).filter(Boolean);
   const objEls = objs.map(x=>({...normalizeAbility(x), name:x.name, _obj:true}));
-  const els = [...abil.map(x=>({...normalizeAbility(x), _obj:false})), ...objEls];
+  const els = [...abil.map(x=>({...normalizeAbility(x), name:x.name, _obj:false})), ...objEls];
   const conflict = csTwoHandConflict(objEls);
   const hasRanged = els.some(a=>a.ranged && (a.stat==='vitesse' || a.stat2==='vitesse')); // ligne à distance (VIT) seulement si un élément porte le symbole d'arc en vitesse
   const hasMagic = els.some(a=>a.magical || a.magicLink); // lignes INT affichées si sort ou élément lié à la magie // lignes magiques (INT) seulement pour les personnages ayant une capacité magique
@@ -2992,7 +3005,7 @@ async function csSheetHtml(cfg, idx){
   const [chImg, petImg] = await Promise.all([csImg(ch), csImg(pet)]);
   const T = {}; Object.keys(STAT_LABELS).forEach(k=>{ T[k]=csTotals(ch, els, k); });
   const ctx = { star:false };
-  const lineMap = new Map(els.map(e=>[e, csEffectLines(e, els, ch, ctx)]));
+  const lineMap = new Map(els.map(e=>[e, csEffectLines(e, els, ch, ctx, theme)]));
   const lineFn = e => { const l = lineMap.get(e)||[]; return l.length ? `<div class="effs">${l.join('')}</div>` : ''; };
   const nLines = [...lineMap.values()].reduce((n,l)=>n+l.length,0);
   const load = abil.length + objs.length + nLines*0.6 + (cfg.effects ? (abil.length+objs.length)*0.9 : 0) + (objs.length?1:0) + 1;
@@ -3056,12 +3069,15 @@ const CS_SHEET_CSS = `
 .none{ color:#a99b80; font-size:8pt; }
 
 .effs{ margin-top:.3mm; padding-left:2.2mm; display:flex; flex-direction:column; gap:.2mm; }
-.eff{ display:flex; align-items:baseline; gap:1.2mm; font-size:6.6pt; line-height:1.2; }
+.eff{ display:flex; align-items:center; gap:1.5mm; font-size:6.6pt; line-height:1.2; }
 .eff::before{ content:'•'; color:#7a6a50; }
-.eff .el{ font-weight:800; white-space:nowrap; }
+.eff .el{ font-weight:800; white-space:nowrap; font-size:7.4pt; }
 .eff.atk .el{ color:#8a2b1d; } .eff.def .el{ color:#285696; }
-.eff .ef{ flex:1; color:#5c4e3a; }
-.eff b{ font-size:7.4pt; white-space:nowrap; }
+.eff .ef{ flex:1; color:#6b4f6b; min-width:0; }
+.pills{ display:flex; gap:1mm; flex:none; }
+.pill{ display:inline-flex; align-items:center; justify-content:center; min-width:14mm; height:3.6mm; border-radius:3mm; color:#fff; font-weight:800; font-size:7.4pt; background:var(--pc); background:color-mix(in srgb, var(--pc) 62%, #fff); text-shadow:0 0 .5mm rgba(0,0,0,.35); }
+.pill.empty{ background:none; }
+.pts .chip{ min-width:14mm; justify-content:center; }
 .fn{ font-size:6pt; color:#7a6a50; margin-top:1mm; }
 .warn{ background:#fde8e4; border:.3mm solid #c0523f; color:#7a1f12; font-size:6pt; font-weight:700; padding:.8mm 1.4mm; border-radius:1.2mm; margin:1mm 0; line-height:1.2; }
 `;
