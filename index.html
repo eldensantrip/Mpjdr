@@ -2970,7 +2970,13 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
     if(!ks.length) return;
     if(star) ctx.star = true;
     const f = ks.map(k=>STAT_SHORT[k]).join(sep) + names.map(n=>' + '+escapeHtml(n)).join('');
-    const pills = ks.map(k=>`<span class="pill" style="--pc:${statColorHex(theme,k)}">${totalFn(k)}</span>`).join('');
+    // Chaque pastille se place sous la puce de la même caractéristique (colonne alignée avec la ligne de l'élément).
+    const chipKs = uniq([e.stat, e.stat2].filter(Boolean));
+    const slots = new Array(Math.max(chipKs.length, ks.length)).fill('');
+    const rest = [];
+    ks.forEach(k=>{ const idx = chipKs.indexOf(k); (idx>=0 && !slots[idx]) ? (slots[idx]=k) : rest.push(k); });
+    rest.forEach(k=>{ const i = slots.indexOf(''); if(i>=0) slots[i]=k; });
+    const pills = slots.map(k=> k ? `<span class="pill" style="--pc:${statColorHex(theme,k)}">${totalFn(k)}</span>` : '<span class="pill empty"></span>').join('');
     out.push({ key, ks, html:`<div class="eff ${kind}"><span class="el">${escapeHtml(label)}${star?' *':''}</span><span class="ef">${f}</span><span class="pills">${pills}</span></div>` });
   };
   const atkLine = (key,label,mode,allowed) => {
