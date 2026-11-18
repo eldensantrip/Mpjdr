@@ -2303,7 +2303,7 @@ function buildSheetFormFields(item){
     <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('abilities',selAbil)}</div><small>Les sorts ✨ affichent leur attaque magique (INT) ; les éléments liés à la magie 🔮 affichent les lignes d'attaque et de défense magiques sans appliquer leurs bonus.</small></div>
   <div class="field"><label>Objets magiques (facultatif)</label>
     <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('objects',selObj)}</div>
-    <small>La feuille détaille, pour chaque capacité et objet, ses effets (attaque, parade, etc.) avec le total de la caractéristique. Les bonus d'armes ne se cumulent pas (seul le meilleur compte), de même pour les défenses à astérisque.</small>
+    <small>La feuille détaille, pour chaque capacité et objet : une ligne à son nom (bonus appliqués), puis ses attaques, parades et esquives. La catégorie BASE ajoute l'attaque physique et l'esquive de base quand aucun élément ne les fournit. Les parades à astérisque (armes, boucliers) sont non cumulables.</small>
     <div id="sheet-warn" style="display:none;margin-top:6px;padding:6px 8px;border:1px solid #c0523f;background:#fde8e4;color:#7a1f12;border-radius:8px;font-size:12.5px;font-weight:600;"></div></div>
   <div class="field">
     <label class="check"><input type="checkbox" name="cs-effects" ${effects?'checked':''}> Afficher le texte des effets sous chaque capacité / objet</label>
@@ -2947,40 +2947,61 @@ function csTwoHandConflict(objEls){
   if(others.length) return `« ${th[0].name||'Sans nom'} » se porte à deux mains : incompatible avec ${others.map(o=>'« '+(o.name||'Sans nom')+' »').join(', ')} (bouclier ou seconde arme).`;
   return '';
 }
-/* Détail des effets d'un élément : une ligne par type d'effet (attaque physique, parade…), formule en noms d'éléments,
-   et une pastille par caractéristique avec le total du personnage. */
+/* Détail des effets d'un élément. Retourne une liste de lignes {key, ks, html} :
+   - une ligne au nom de l'élément (ses bonus appliqués, hors symboles) ;
+   - Attaque physique / à distance / magique ; Parade physique (FOR) / Esquive (VIT) / Défense magique (INT), selon ses symboles.
+   Chaque ligne : formule en noms d'éléments (seulement les caractéristiques réellement sollicitées) + une pastille de total par caractéristique.
+   Une attaque ou une parade se fait avec une seule arme / un seul bouclier à la fois : la ligne d'un objet ne compte que son propre bonus (+ capacités, + objets de défense cumulables). */
 function csEffectLines(e, elsAll, ch, ctx, theme){
   const own = (a,k) => (a.stat===k?(Number(a.modifier)||0):0) + ((a.stat2 && a.stat2!==a.stat && a.stat2===k)?(Number(a.modifier2)||0):0);
+  const baseOf = k => Number(ch.stats?.[k])||0;
   const els = elsAll.filter(a=>!a.magicLink); // les éléments « liés à la magie » n'appliquent aucun bonus
-  const FAM = { phys:['force','vitesse'], ranged:['vitesse'], magic:['intelligence'] };
+  const abil = els.filter(a=>!a._obj), objs = els.filter(a=>a._obj);
+  const nm = a => a.name||'Sans nom';
   const atkSel = (a,mode) => mode==='ranged' ? a.ranged : mode==='magic' ? a.magical : (a.attack && !a.ranged && !a.magical);
+  const uniq = arr => [...new Set(arr)];
+  const sumOwn = (list,k) => list.reduce((t,a)=>t+own(a,k),0);
+  const eKeys = uniq([e.stat,e.stat2].filter(Boolean)).filter(k=>STAT_SHORT[k] && own(e,k)!==0); // même ordre que les puces de l'élément
   const out = [];
-  const add = (kind,label,fam,mode,link) => {
-    const stats = FAM[fam];
-    const touched = link ? stats : stats.filter(k=>own(e,k)!==0);
-    if(!touched.length) return;
-    let star = !link && kind==='def' && !!e.defStar;
-    const pills = stats.map(k=>{
-      if(!touched.includes(k)) return '<span class="pill empty"></span>';
-      const t = csTotals(ch, els, k, mode);
-      const cap = kind==='atk' ? t.capAtk : t.capDef;
-      const obj = (!link && e._obj) ? (kind==='atk' ? t.objAtk : t.objDef) : 0; // capacité : total « capacité » ; objet : capacité + objet
-      if(!link && kind==='atk' && e._obj && t.weapons>1) star = true;
-      return `<span class="pill" style="--pc:${statColorHex(theme,k)}">${t.base+cap+obj}</span>`;
-    }).join('');
-    // Éléments qui contribuent à la formule : les capacités concernées, puis l'objet lui-même.
-    const names = els.filter(a=>!a._obj && (kind==='atk' ? atkSel(a,mode) : (a.defensive && !a.defStar)) && stats.some(k=>own(a,k)!==0)).map(a=>a.name||'Sans nom');
-    if(!link && e._obj && !names.includes(e.name||'Sans nom')) names.push(e.name||'Sans nom');
+  const push = (key, kind, label, ks, names, totalFn, sep, star) => {
+    if(!ks.length) return;
     if(star) ctx.star = true;
-    const f = stats.map(k=>STAT_SHORT[k]).join(' ou ') + names.map(n=>' + '+escapeHtml(n)).join('');
-    out.push(`<div class="eff ${kind}"><span class="el">${label}${star?' *':''}</span><span class="ef">${f}</span><span class="pills">${pills}</span></div>`);
+    const f = ks.map(k=>STAT_SHORT[k]).join(sep) + names.map(n=>' + '+escapeHtml(n)).join('');
+    const pills = ks.map(k=>`<span class="pill" style="--pc:${statColorHex(theme,k)}">${totalFn(k)}</span>`).join('');
+    out.push({ key, ks, html:`<div class="eff ${kind}"><span class="el">${escapeHtml(label)}${star?' *':''}</span><span class="ef">${f}</span><span class="pills">${pills}</span></div>` });
   };
-  if(e.magicLink){ add('atk','Attaque magique','magic','magic',true); add('def','Défense magique','magic',undefined,true); return out; }
-  if(e.attack && !e.ranged && !e.magical) add('atk','Attaque physique','phys');
-  if(e.ranged) add('atk','Attaque à distance','ranged','ranged');
-  if(e.magical) add('atk','Attaque magique','magic','magic');
-  if(e.defensive){ add('def','Parade physique','phys'); add('def','Défense magique','magic'); }
+  const atkLine = (key,label,mode,allowed) => {
+    const ks = e.magicLink ? allowed : eKeys.filter(k=>allowed.includes(k));
+    const names = uniq([...abil.filter(a=>atkSel(a,mode) && ks.some(k=>own(a,k)!==0)).map(nm), ...((!e.magicLink && e._obj)?[nm(e)]:[])]);
+    push(key,'atk',label,ks,names,k=>baseOf(k)+sumOwn(abil.filter(a=>atkSel(a,mode)),k)+((!e.magicLink&&e._obj)?own(e,k):0),' ou ',false);
+  };
+  const defLine = (key,label,k) => {
+    const plainA = abil.filter(a=>a.defensive && !a.defStar), plainO = objs.filter(a=>a.defensive && !a.defStar);
+    const star = !e.magicLink && !!e.defStar;
+    const names = uniq([...plainA.filter(a=>own(a,k)!==0).map(nm), ...((!e.magicLink&&e._obj)?plainO.filter(a=>own(a,k)!==0).map(nm):[]), ...(star?[nm(e)]:[])]);
+    push(key,'def',label,[k],names,()=>baseOf(k)+sumOwn(plainA,k)+((!e.magicLink&&e._obj)?sumOwn(plainO,k):0)+(star?own(e,k):0),' ou ',star);
+  };
+  if(e.magicLink){
+    atkLine('atkmagic','Attaque magique','magic',['intelligence']);
+    defLine('defmagic','Défense magique','intelligence');
+    return out;
+  }
+  // Ligne au nom de l'élément : ses bonus, hors symboles.
+  push('name','nm',nm(e),eKeys,[nm(e)],k=>baseOf(k)+own(e,k),' et ',false);
+  if(e.attack && !e.ranged && !e.magical) atkLine('atkphys','Attaque physique',undefined,['force','vitesse']);
+  if(e.ranged) atkLine('atkranged','Attaque à distance','ranged',['vitesse']);
+  if(e.magical) atkLine('atkmagic','Attaque magique','magic',['intelligence']);
+  if(e.defensive) eKeys.forEach(k=>{
+    if(k==='force') defLine('parade','Parade physique',k);
+    else if(k==='vitesse') defLine('esquive','Esquive',k);
+    else if(k==='intelligence') defLine('defmagic','Défense magique',k);
+  });
   return out;
+}
+/* Ligne de la catégorie BASE : valeur de base d'une caractéristique (attaque physique, esquive) quand aucun élément ne la fournit. */
+function csBaseLine(kind,label,ks,ch,theme){
+  const pills = ks.map(k=>`<span class="pill" style="--pc:${statColorHex(theme,k)}">${Number(ch.stats?.[k])||0}</span>`).join('');
+  return `<div class="eff ${kind}"><span class="el">${label}</span><span class="ef">${ks.map(k=>STAT_SHORT[k]).join(' ou ')}</span><span class="pills">${pills}</span></div>`;
 }
 function csListHtml(items, withEffects, theme, elList, lineFn){
   return items.map((it,i)=>{
@@ -3006,8 +3027,15 @@ async function csSheetHtml(cfg, idx){
   const T = {}; Object.keys(STAT_LABELS).forEach(k=>{ T[k]=csTotals(ch, els, k); });
   const ctx = { star:false };
   const lineMap = new Map(els.map(e=>[e, csEffectLines(e, els, ch, ctx, theme)]));
-  const lineFn = e => { const l = lineMap.get(e)||[]; return l.length ? `<div class="effs">${l.join('')}</div>` : ''; };
-  const nLines = [...lineMap.values()].reduce((n,l)=>n+l.length,0);
+  const lineFn = e => { const l = lineMap.get(e)||[]; return l.length ? `<div class="effs">${l.map(x=>x.html).join('')}</div>` : ''; };
+  // Catégorie BASE : attaque physique et esquive de base, pour les caractéristiques qu'aucune capacité / aucun objet ne fournit.
+  const allLines = [...lineMap.values()].flat();
+  const covAtk = new Set(allLines.filter(l=>l.key==='atkphys').flatMap(l=>l.ks));
+  const baseLines = [];
+  const baseAtkKs = ['force','vitesse'].filter(k=>!covAtk.has(k));
+  if(baseAtkKs.length) baseLines.push(csBaseLine('atk','Attaque physique',baseAtkKs,ch,theme));
+  if(!allLines.some(l=>l.key==='esquive')) baseLines.push(csBaseLine('def','Esquive',['vitesse'],ch,theme));
+  const nLines = allLines.length + baseLines.length;
   const load = abil.length + objs.length + nLines*0.6 + (cfg.effects ? (abil.length+objs.length)*0.9 : 0) + (objs.length?1:0) + 1;
   const artH = Math.max(30, Math.min(62, 62 - Math.max(0, load-9)*4.2));
   const nameSize = (ch.name||'').length>20 ? 15 : (ch.name||'').length>14 ? 18 : 21;
@@ -3024,10 +3052,11 @@ async function csSheetHtml(cfg, idx){
       ${pet?`<div class="pet"><div class="petimg">${csAvatarHtml(pet, petImg)}</div><div class="petname">${escapeHtml(pet.name||'')}</div></div>`:''}
     </div>
     <div class="stats">${cols}</div>
+    ${baseLines.length?`<div class="sec">Base</div><div class="list"><div class="item"><div class="effs">${baseLines.join('')}</div></div></div>`:''}
     <div class="sec">Capacités</div>
     <div class="list">${abil.length ? csListHtml(abil, cfg.effects, theme, els.slice(0,abil.length), lineFn) : '<div class="none">—</div>'}</div>
     ${objs.length ? `<div class="sec">Objets magiques</div><div class="list">${csListHtml(objs, cfg.effects, theme, els.slice(abil.length), lineFn)}</div>` : ''}
-    ${ctx.star?'<div class="fn">(*) non cumulable : seul le meilleur bonus est compté.</div>':''}
+    ${ctx.star?'<div class="fn">(*) non cumulable : on ne pare qu’avec une seule arme ou un seul bouclier à la fois.</div>':''}
   </section>`;
 }
 const CS_SHEET_CSS = `
@@ -3072,7 +3101,7 @@ const CS_SHEET_CSS = `
 .eff{ display:flex; align-items:center; gap:1.5mm; font-size:6.6pt; line-height:1.2; }
 .eff::before{ content:'•'; color:#7a6a50; }
 .eff .el{ font-weight:800; white-space:nowrap; font-size:7.4pt; }
-.eff.atk .el{ color:#8a2b1d; } .eff.def .el{ color:#285696; }
+.eff.atk .el{ color:#8a2b1d; } .eff.def .el{ color:#285696; } .eff.nm .el{ color:#2E2115; }
 .eff .ef{ flex:1; color:#6b4f6b; min-width:0; }
 .pills{ display:flex; gap:1mm; flex:none; }
 .pill{ display:inline-flex; align-items:center; justify-content:center; min-width:14mm; height:3.6mm; border-radius:3mm; color:#fff; font-weight:800; font-size:7.4pt; background:var(--pc); background:color-mix(in srgb, var(--pc) 62%, #fff); text-shadow:0 0 .5mm rgba(0,0,0,.35); }
