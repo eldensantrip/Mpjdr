@@ -2301,7 +2301,7 @@ function buildSheetFormFields(item){
     <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('abilities',selAbil)}</div><small>Les lignes d'attaque et de défense magiques (INT) n'apparaissent que si au moins une capacité choisie est marquée ✨ magique.</small></div>
   <div class="field"><label>Objets magiques (facultatif)</label>
     <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('objects',selObj)}</div>
-    <small>Attaque : les bonus des capacités s'additionnent, ceux des armes (objets d'attaque) ne se cumulent pas — pour chaque caractéristique, seul le meilleur est compté. Défense : les bonus s'additionnent, sauf ceux des défenses à astérisque (meilleur bonus seulement). La ligne d'attaque à distance (VIT) n'apparaît que si un élément choisi est marqué 🏹 avec un bonus en vitesse.</small>
+    <small>Attaque : les bonus des capacités s'additionnent, ceux des armes (objets d'attaque) ne se cumulent pas — pour chaque caractéristique, seul le meilleur est compté. Défense : les bonus s'additionnent, sauf ceux des défenses à astérisque (meilleur bonus seulement). En VIT, l'attaque/défense physique s'affiche si un élément y contribue ; l'attaque à distance est une ligne distincte (non cumulable avec la physique), affichée si un élément choisi est marqué 🏹 avec un bonus en vitesse.</small>
     <div id="sheet-warn" style="display:none;margin-top:6px;padding:6px 8px;border:1px solid #c0523f;background:#fde8e4;color:#7a1f12;border-radius:8px;font-size:12.5px;font-weight:600;"></div></div>
   <div class="field">
     <label class="check"><input type="checkbox" name="cs-effects" ${effects?'checked':''}> Afficher le texte des effets sous chaque capacité / objet</label>
@@ -2902,19 +2902,21 @@ function csPointChips(a, theme){
   if(a.stat2 && a.stat2!==a.stat) parts.push({stat:a.stat2, mod:Number(a.modifier2)||0});
   return parts.map(p=>`<span class="chip" style="background:${statColorHex(theme,p.stat)}">${csStatGlyph(p.stat)}${STAT_SHORT[p.stat]} ${p.mod>0?'+':p.mod<0?'−':''}${Math.abs(p.mod)}</span>`).join('');
 }
-function csTotals(character, els, key){
+function csTotals(character, els, key, mode){
   const base = Number(character.stats?.[key])||0;
   // Points qu'un élément apporte à cette caractéristique (1re et 2e caractéristique de l'élément).
   const own = a => (a.stat===key?(Number(a.modifier)||0):0) + ((a.stat2 && a.stat2!==a.stat && a.stat2===key)?(Number(a.modifier2)||0):0);
   const sum = list => list.reduce((t,a)=>t+own(a),0);
   const best = vals => vals.length ? Math.max(...vals) : null;
   // Attaque : les capacités s'additionnent ; les armes (objets d'attaque) ne se cumulent pas : seul le meilleur bonus par caractéristique compte.
-  const weaponVals = els.filter(a=>a.attack && a._obj).map(own).filter(v=>v!==0);
+  // Deux familles d'attaque distinctes, qui ne se cumulent pas entre elles : physique (mêlée, en FOR ou VIT) et à distance (éléments marqués 🏹).
+  const atkEls = els.filter(a=> mode==='ranged' ? a.ranged : (a.attack && !a.ranged));
+  const weaponVals = atkEls.filter(a=>a._obj).map(own).filter(v=>v!==0);
   // Défense : bonus cumulables, sauf ceux des défenses à astérisque (meilleur bonus seulement).
   const starVals = els.filter(a=>a.defensive && a.defStar).map(own).filter(v=>v!==0);
   return {
     base,
-    atk: sum(els.filter(a=>a.attack && !a._obj)) + (best(weaponVals)||0),
+    atk: sum(atkEls.filter(a=>!a._obj)) + (best(weaponVals)||0),
     weapons: weaponVals.length,
     def: sum(els.filter(a=>a.defensive && !a.defStar)),
     star: best(starVals)
@@ -2967,8 +2969,14 @@ async function csSheetHtml(cfg, idx){
     const wn = t.weapons>1 ? 'armes non cumulables : seul le meilleur bonus est compté' : '';
     if(k==='force'){
       lines = csCalc('atk','Attaque physique',t.base,t.atk,null,wn) + csCalc('def','Défense physique',t.base,t.def,t.star);
-    } else if(k==='vitesse' && hasRanged){
-      lines = csCalc('atk','Attaque à distance',t.base,t.atk,null,wn,CS_BOW); // pas de défense en vitesse
+    } else if(k==='vitesse'){
+      // En vitesse : attaque/défense physiques (si un élément y contribue) et, séparément, attaque à distance. Pas de défense à distance.
+      const touchV = a => a.stat==='vitesse' || a.stat2==='vitesse';
+      const r = csTotals(ch, els, 'vitesse', 'ranged');
+      const rn = r.weapons>1 ? 'armes non cumulables : seul le meilleur bonus est compté' : '';
+      if(els.some(a=>a.attack && !a.ranged && touchV(a))) lines += csCalc('atk','Attaque physique',t.base,t.atk,null,wn);
+      if(els.some(a=>a.defensive && touchV(a))) lines += csCalc('def','Défense physique',t.base,t.def,t.star);
+      if(hasRanged) lines += csCalc('atk','Attaque à distance',r.base,r.atk,null,rn,CS_BOW);
     } else if(k==='intelligence' && hasMagic){
       lines = csCalc('atk','Attaque magique',t.base,t.atk,null,wn) + csCalc('def','Défense magique',t.base,t.def,t.star);
     }
