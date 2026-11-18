@@ -3032,7 +3032,11 @@ async function csSheetHtml(cfg, idx){
   const T = {}; Object.keys(STAT_LABELS).forEach(k=>{ T[k]=csTotals(ch, els, k); });
   const ctx = { star:false };
   const lineMap = new Map(els.map(e=>[e, csEffectLines(e, els, ch, ctx, theme)]));
-  const lineFn = e => { const l = lineMap.get(e)||[]; return l.length ? `<div class="effs">${l.map(x=>x.html).join('')}</div>` : ''; };
+  // Lignes déjà fournies par un objet magique (clé de ligne → caractéristiques concernées) : une même ligne de capacité est un doublon, le bonus de l'objet prime.
+  const objLineStats = new Map();
+  els.forEach(e=>{ if(!e._obj) return; (lineMap.get(e)||[]).forEach(x=>{ if(x.key==='name') return; const s=objLineStats.get(x.key)||new Set(); x.ks.forEach(k=>s.add(k)); objLineStats.set(x.key,s); }); });
+  const isDupLine = (e,x) => !e._obj && x.key!=='name' && objLineStats.has(x.key) && x.ks.some(k=>objLineStats.get(x.key).has(k));
+  const lineFn = e => { const l = lineMap.get(e)||[]; return l.length ? `<div class="effs">${l.map(x=>isDupLine(e,x) ? x.html.replace('<div class="eff ','<div title="Doublon : le bonus de l’objet magique prime" class="eff dup ') : x.html).join('')}</div>` : ''; };
   // Catégorie BASE : attaque physique et esquive de base, pour les caractéristiques qu'aucune capacité / aucun objet ne fournit.
   const allLines = [...lineMap.values()].flat();
   const covAtk = new Set(allLines.filter(l=>l.key==='atkphys').flatMap(l=>l.ks));
@@ -3108,6 +3112,9 @@ const CS_SHEET_CSS = `
 .eff .el{ font-weight:800; white-space:nowrap; font-size:7.4pt; }
 .eff.atk .el{ color:#8a2b1d; } .eff.def .el{ color:#285696; } .eff.nm .el{ color:#2E2115; }
 .eff .ef{ flex:1; color:#6b4f6b; min-width:0; }
+.eff.dup{ background:#3b3128; border-radius:1mm; padding:.2mm 1mm; margin-left:-1mm; }
+.eff.dup::before{ color:#d9c9a0; }
+.eff.dup .el, .eff.dup .ef{ color:#efe4cc; }
 .pills{ display:flex; gap:1mm; flex:none; }
 .pill{ display:inline-flex; align-items:center; justify-content:center; min-width:14mm; height:3.6mm; border-radius:3mm; color:#fff; font-weight:800; font-size:7.4pt; background:var(--pc); background:color-mix(in srgb, var(--pc) 62%, #fff); text-shadow:0 0 .5mm rgba(0,0,0,.35); }
 .pill.empty{ background:none; }
