@@ -3123,9 +3123,9 @@ const CS_SHEET_CSS = `
 .eff.dup .el, .eff.dup .ef{ color:#f7f3ea; }
 .eff.dup .pill{ background:#b9b4aa; color:#3b362f; text-shadow:none; }
 .pills{ display:flex; gap:1mm; flex:none; }
-.pill{ display:inline-flex; align-items:center; justify-content:center; min-width:14mm; height:3.6mm; border-radius:3mm; color:#fff; font-weight:800; font-size:7.4pt; background:var(--pc); background:color-mix(in srgb, var(--pc) 62%, #fff); text-shadow:0 0 .5mm rgba(0,0,0,.35); }
+.pill{ display:inline-flex; align-items:center; justify-content:center; box-sizing:border-box; width:16mm; min-width:16mm; height:3.6mm; border-radius:3mm; color:#fff; font-weight:800; font-size:7.4pt; background:var(--pc); background:color-mix(in srgb, var(--pc) 62%, #fff); text-shadow:0 0 .5mm rgba(0,0,0,.35); }
 .pill.empty{ background:none; }
-.pts .chip{ min-width:14mm; justify-content:center; }
+.pts .chip{ box-sizing:border-box; width:16mm; min-width:16mm; justify-content:center; padding-left:.6mm; padding-right:.6mm; white-space:nowrap; }
 .fn{ font-size:6pt; color:#7a6a50; margin-top:1mm; }
 .warn{ background:#fde8e4; border:.3mm solid #c0523f; color:#7a1f12; font-size:6pt; font-weight:700; padding:.8mm 1.4mm; border-radius:1.2mm; margin:1mm 0; line-height:1.2; }
 `;
