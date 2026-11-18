@@ -2300,10 +2300,10 @@ function buildSheetFormFields(item){
     <select name="sheet-pet"><option value="">— Aucun —</option>${byName('companions').map(c=>`<option value="${escapeHtml(c.id)}" ${selPet===c.id?'selected':''}>${escapeHtml(c.name||'Sans nom')}${c.type?' · '+escapeHtml(c.type):''}</option>`).join('')}</select>
   </div>
   <div class="field"><label>Capacités</label>
-    <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('abilities',selAbil)}</div><small>L'attaque magique (INT) est définie par les éléments marqués ✨ (sorts). Les lignes magiques n'apparaissent que si un élément choisi est un sort ✨ ou est lié à la magie 🔮 (dans ce cas, ses bonus ne sont pas appliqués).</small></div>
+    <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('abilities',selAbil)}</div><small>Les sorts ✨ affichent leur attaque magique (INT) ; les éléments liés à la magie 🔮 affichent les lignes d'attaque et de défense magiques sans appliquer leurs bonus.</small></div>
   <div class="field"><label>Objets magiques (facultatif)</label>
     <div style="max-height:150px;overflow:auto;border:1px solid #d9c9a0;border-radius:8px;padding:6px 8px;background:#fffaf0;">${check('objects',selObj)}</div>
-    <small>Attaque : les bonus des capacités s'additionnent, ceux des armes (objets d'attaque) ne se cumulent pas — pour chaque caractéristique, seul le meilleur est compté. Défense : les bonus s'additionnent, sauf ceux des défenses à astérisque (meilleur bonus seulement). En VIT, l'attaque/défense physique s'affiche si un élément y contribue ; l'attaque à distance est une ligne distincte (non cumulable avec la physique), affichée si un élément choisi est marqué 🏹 avec un bonus en vitesse.</small>
+    <small>La feuille détaille, pour chaque capacité et objet, ses effets (attaque, parade, etc.) avec le total de la caractéristique. Les bonus d'armes ne se cumulent pas (seul le meilleur compte), de même pour les défenses à astérisque.</small>
     <div id="sheet-warn" style="display:none;margin-top:6px;padding:6px 8px;border:1px solid #c0523f;background:#fde8e4;color:#7a1f12;border-radius:8px;font-size:12.5px;font-weight:600;"></div></div>
   <div class="field">
     <label class="check"><input type="checkbox" name="cs-effects" ${effects?'checked':''}> Afficher le texte des effets sous chaque capacité / objet</label>
@@ -2919,9 +2919,12 @@ function csTotals(character, els, key, mode){
   const weaponVals = atkEls.filter(a=>a._obj).map(own).filter(v=>v!==0);
   // Défense : bonus cumulables, sauf ceux des défenses à astérisque (meilleur bonus seulement).
   const starVals = els.filter(a=>a.defensive && a.defStar).map(own).filter(v=>v!==0);
+  const capAtk = sum(atkEls.filter(a=>!a._obj)), objAtk = best(weaponVals)||0;
+  const capDef = sum(els.filter(a=>a.defensive && !a.defStar && !a._obj));
+  const objDef = sum(els.filter(a=>a.defensive && !a.defStar && a._obj)) + (best(starVals)||0);
   return {
-    base,
-    atk: sum(atkEls.filter(a=>!a._obj)) + (best(weaponVals)||0),
+    base, capAtk, objAtk, capDef, objDef,
+    atk: capAtk + objAtk,
     weapons: weaponVals.length,
     def: sum(els.filter(a=>a.defensive && !a.defStar)),
     star: best(starVals)
@@ -2944,13 +2947,35 @@ function csTwoHandConflict(objEls){
   if(others.length) return `« ${th[0].name||'Sans nom'} » se porte à deux mains : incompatible avec ${others.map(o=>'« '+(o.name||'Sans nom')+' »').join(', ')} (bouclier ou seconde arme).`;
   return '';
 }
-function csListHtml(items, withEffects, theme){
-  return items.map(it=>{
+/* Détail des effets d'un élément : une ligne par type d'attaque / parade et par caractéristique, avec le total de la caractéristique. */
+function csEffectLines(e, elsAll, ch, ctx){
+  const own = (a,k) => (a.stat===k?(Number(a.modifier)||0):0) + ((a.stat2 && a.stat2!==a.stat && a.stat2===k)?(Number(a.modifier2)||0):0);
+  const els = elsAll.filter(a=>!a.magicLink); // les éléments « liés à la magie » n'appliquent aucun bonus
+  const out = [];
+  const add = (kind,label,k,mode,starFlag) => {
+    const t = csTotals(ch, els, k, mode);
+    const cap = kind==='atk' ? t.capAtk : t.capDef;
+    const obj = e._obj ? (kind==='atk' ? t.objAtk : t.objDef) : 0; // une capacité n'affiche que le total « capacité » ; un objet affiche capacité + objet
+    const star = starFlag!==undefined ? starFlag : (kind==='def' ? !!e.defStar : (!!e._obj && t.weapons>1));
+    if(star) ctx.star = true;
+    const f = `${STAT_SHORT[k]}${cap?' + bonus capacité':''}${obj?' + bonus objet':''}`;
+    out.push(`<div class="eff ${kind}"><span class="el">${label}${star?' *':''}</span><span class="ef">${f}</span><b>= ${t.base+cap+obj}</b></div>`);
+  };
+  if(e.magicLink){ add('atk','Attaque magique','intelligence','magic',false); add('def','Défense magique','intelligence',undefined,false); return out; }
+  const keys = [...new Set([e.stat,e.stat2].filter(Boolean))].filter(k=>STAT_SHORT[k] && own(e,k)!==0);
+  if(e.attack && !e.ranged && !e.magical) keys.filter(k=>k==='force'||k==='vitesse').forEach(k=>add('atk','Attaque physique',k));
+  if(e.ranged && keys.includes('vitesse')) add('atk','Attaque à distance','vitesse','ranged');
+  if(e.magical && keys.includes('intelligence')) add('atk','Attaque magique','intelligence','magic');
+  if(e.defensive) keys.forEach(k=>{ if(k==='force'||k==='vitesse') add('def','Parade physique',k); else if(k==='intelligence') add('def','Défense magique',k); });
+  return out;
+}
+function csListHtml(items, withEffects, theme, elList, lineFn){
+  return items.map((it,i)=>{
     const a = normalizeAbility(it);
     const sym = cooldownHtml(a).replace(/font-size:6\.6pt/g,'font-size:8.5pt');
     const fxRaw = a.effect || it.description || '';
     const fx = withEffects && fxRaw ? `<div class="fx">${escapeHtml(String(fxRaw).replace(/:(INT|SEN|VIT|FOR):/gi,(m,c)=>c.toUpperCase()).replace(/:\/?f:/gi,''))}</div>` : '';
-    return `<div class="item"><div class="row"><div class="rn"><b>${escapeHtml(it.name||'Sans nom')}</b><span class="sym">${sym}</span></div><div class="pts">${csPointChips(a,theme)}</div></div>${fx}</div>`;
+    return `<div class="item"><div class="row"><div class="rn"><b>${escapeHtml(it.name||'Sans nom')}</b><span class="sym">${sym}</span></div><div class="pts">${csPointChips(a,theme)}</div></div>${fx}${lineFn&&elList?lineFn(elList[i]):''}</div>`;
   }).join('');
 }
 async function csSheetHtml(cfg, idx){
@@ -2966,30 +2991,16 @@ async function csSheetHtml(cfg, idx){
   const theme = getTheme('characters');
   const [chImg, petImg] = await Promise.all([csImg(ch), csImg(pet)]);
   const T = {}; Object.keys(STAT_LABELS).forEach(k=>{ T[k]=csTotals(ch, els, k); });
-  const load = abil.length + objs.length + (cfg.effects ? (abil.length+objs.length)*0.9 : 0) + (objs.length?1:0) + 1;
-  const artH = Math.max(32, Math.min(62, 62 - Math.max(0, load-7)*4.2));
+  const ctx = { star:false };
+  const lineMap = new Map(els.map(e=>[e, csEffectLines(e, els, ch, ctx)]));
+  const lineFn = e => { const l = lineMap.get(e)||[]; return l.length ? `<div class="effs">${l.join('')}</div>` : ''; };
+  const nLines = [...lineMap.values()].reduce((n,l)=>n+l.length,0);
+  const load = abil.length + objs.length + nLines*0.6 + (cfg.effects ? (abil.length+objs.length)*0.9 : 0) + (objs.length?1:0) + 1;
+  const artH = Math.max(30, Math.min(62, 62 - Math.max(0, load-9)*4.2));
   const nameSize = (ch.name||'').length>20 ? 15 : (ch.name||'').length>14 ? 18 : 21;
   const cols = Object.keys(STAT_LABELS).map(k=>{
-    const t = T[k]; let lines = '';
-    const wn = t.weapons>1 ? 'armes non cumulables : seul le meilleur bonus est compté' : '';
-    if(k==='force'){
-      lines = csCalc('atk','Attaque physique',t.base,t.atk,null,wn) + csCalc('def','Défense physique',t.base,t.def,t.star);
-    } else if(k==='vitesse'){
-      // En vitesse : attaque/défense physiques (si un élément y contribue) et, séparément, attaque à distance. Pas de défense à distance.
-      const touchV = a => a.stat==='vitesse' || a.stat2==='vitesse';
-      const r = csTotals(ch, els, 'vitesse', 'ranged');
-      const rn = r.weapons>1 ? 'armes non cumulables : seul le meilleur bonus est compté' : '';
-      if(els.some(a=>a.attack && !a.ranged && !a.magical && touchV(a))) lines += csCalc('atk','Attaque physique',t.base,t.atk,null,wn);
-      if(els.some(a=>a.defensive && touchV(a))) lines += csCalc('def','Défense physique',t.base,t.def,t.star);
-      if(hasRanged) lines += csCalc('atk','Attaque à distance',r.base,r.atk,null,rn,CS_BOW);
-    } else if(k==='intelligence'){
-      // En INT : l'attaque magique est définie par les éléments marqués ✨ (sorts), pas par l'attaque des armes.
-      const m = csTotals(ch, els.filter(a=>!a.magicLink), 'intelligence', 'magic'); // les éléments « liés à la magie » n'appliquent aucun bonus
-      const mn = m.weapons>1 ? 'objets non cumulables : seul le meilleur bonus est compté' : '';
-      if(els.some(a=>a.magicLink) || els.some(a=>a.magical && (a.stat==='intelligence' || a.stat2==='intelligence'))) lines += csCalc('atk','Attaque magique',m.base,m.atk,null,mn,CS_STAR);
-      if(hasMagic) lines += csCalc('def','Défense magique',m.base,m.def,m.star);
-    }
-    return `<div class="col"><div class="sh" style="background:${statColorHex(theme,k)}"><span class="sn">${csStatGlyph(k)}${STAT_SHORT[k]}</span><b>${t.base}</b></div>${lines}</div>`;
+    const t = T[k];
+    return `<div class="col"><div class="sh" style="background:${statColorHex(theme,k)}"><span class="sn">${csStatGlyph(k)}${STAT_SHORT[k]}</span><b>${t.base}</b></div></div>`;
   }).join('');
   return `<section class="sheet">
     <button class="rm noprint" title="Retirer cette feuille de l'impression (elle reste enregistrée)" onclick="opener&&opener.__sheetRemove&&opener.__sheetRemove('${escapeHtml(cfg.id||'')}')">✕</button>
@@ -3001,8 +3012,9 @@ async function csSheetHtml(cfg, idx){
     </div>
     <div class="stats">${cols}</div>
     <div class="sec">Capacités</div>
-    <div class="list">${abil.length ? csListHtml(abil, cfg.effects, theme) : '<div class="none">—</div>'}</div>
-    ${objs.length ? `<div class="sec">Objets magiques</div><div class="list">${csListHtml(objs, cfg.effects, theme)}</div>` : ''}
+    <div class="list">${abil.length ? csListHtml(abil, cfg.effects, theme, els.slice(0,abil.length), lineFn) : '<div class="none">—</div>'}</div>
+    ${objs.length ? `<div class="sec">Objets magiques</div><div class="list">${csListHtml(objs, cfg.effects, theme, els.slice(abil.length), lineFn)}</div>` : ''}
+    ${ctx.star?'<div class="fn">(*) non cumulable : seul le meilleur bonus est compté.</div>':''}
   </section>`;
 }
 const CS_SHEET_CSS = `
@@ -3043,6 +3055,14 @@ const CS_SHEET_CSS = `
 .fx{ font-size:6.3pt; color:#5c4e3a; line-height:1.25; margin-top:.4mm; }
 .none{ color:#a99b80; font-size:8pt; }
 
+.effs{ margin-top:.3mm; padding-left:2.2mm; display:flex; flex-direction:column; gap:.2mm; }
+.eff{ display:flex; align-items:baseline; gap:1.2mm; font-size:6.6pt; line-height:1.2; }
+.eff::before{ content:'•'; color:#7a6a50; }
+.eff .el{ font-weight:800; white-space:nowrap; }
+.eff.atk .el{ color:#8a2b1d; } .eff.def .el{ color:#285696; }
+.eff .ef{ flex:1; color:#5c4e3a; }
+.eff b{ font-size:7.4pt; white-space:nowrap; }
+.fn{ font-size:6pt; color:#7a6a50; margin-top:1mm; }
 .warn{ background:#fde8e4; border:.3mm solid #c0523f; color:#7a1f12; font-size:6pt; font-weight:700; padding:.8mm 1.4mm; border-radius:1.2mm; margin:1mm 0; line-height:1.2; }
 `;
 const CS_CSS = `
