@@ -3003,9 +3003,12 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
   if(e.attack && !e.ranged && !e.magical) atkLine('atkphys','Attaque physique',undefined,['force','vitesse']);
   if(e.ranged) atkLine('atkranged','Attaque à distance','ranged',['vitesse']);
   if(e.magical) atkLine('atkmagic','Attaque magique','magic',['intelligence']);
+  // Un même objet ne donne jamais à la fois Parade physique et Esquive : une arme (attaque physique) ne fait que parer,
+  // et un objet qui apporte de la Force pare (sans esquive) ; l'esquive vient d'un objet non-arme qui n'apporte que de la Vitesse.
+  const noDodge = !!e._obj && ((e.attack && !e.ranged && !e.magical) || eKeys.includes('force'));
   if(e.defensive) eKeys.forEach(k=>{
     if(k==='force') defLine('parade','Parade physique',k);
-    else if(k==='vitesse') defLine('esquive','Esquive',k);
+    else if(k==='vitesse'){ if(!noDodge) defLine('esquive','Esquive',k); }
     else if(k==='intelligence') defLine('defmagic','Défense magique',k);
   });
   return out;
