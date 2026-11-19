@@ -3019,7 +3019,7 @@ function csListHtml(items, withEffects, theme, elList, lineFn){
     const a = normalizeAbility(it);
     const sym = cooldownHtml(a).replace(/font-size:6\.6pt/g,'font-size:8.5pt');
     const fxRaw = a.effect || it.description || '';
-    const fx = withEffects && fxRaw ? `<div class="fx">${escapeHtml(String(fxRaw).replace(/:(INT|SEN|VIT|FOR|BAS|BLS):/gi,(m,c)=>c.toUpperCase()).replace(/:\/?f:/gi,'').replace(/[ \t]*\/b(?![\wÀ-ÿ])[ \t]*/gi,' '))}</div>` : '';
+    const fx = withEffects && fxRaw ? `<div class="fx">${escapeHtml(String(fxRaw).replace(/:(INT|SEN|VIT|FOR|BAS|BLS|DEF\*?|ATT|DIS|MAG|LIE|2M|[UTR][1-9]):/gi,(m,c)=>c.toUpperCase()).replace(/:\/?f:/gi,'').replace(/[ \t]*\/b(?![\wÀ-ÿ])[ \t]*/gi,' '))}</div>` : '';
     return `<div class="item"><div class="row"><div class="rn"><b>${escapeHtml(it.name||'Sans nom')}</b><span class="sym">${sym}</span></div><div class="pts">${csPointChips(a,theme)}</div></div>${fx}${lineFn&&elList?lineFn(elList[i]):''}</div>`;
   }).join('');
 }
@@ -3442,11 +3442,33 @@ function baseInlineIconHtml(){
 function woundInlineIconHtml(){
   return `<span class="inline-stat-icon" style="background-color:#c0261c" title="Blessure"><svg viewBox="0 0 24 24" style="width:64%;height:64%;display:block" aria-hidden="true"><path fill="#fff" d="M12 2.5C12 2.5 5.5 10 5.5 14.6a6.5 6.5 0 0 0 13 0C18.5 10 12 2.5 12 2.5z"/></svg></span>`;
 }
+/* Raccourcis des symboles de capacité/objet (mêmes dessins que ceux affichés à droite du titre) :
+   :DEF: bouclier · :DEF*: bouclier non cumulable · :ATT: épée · :DIS: attaque à distance · :MAG: sort · :LIE: liée à la magie · :2M: deux mains
+   :U1:…:U9: usages par rencontre · :T1:…:T9: usages au total · :R1:…:R9: rechargement en tours */
+const SYMBOL_CODE_RE = /:(DEF\*?|ATT|DIS|MAG|LIE|2M|[UTR][1-9]):/gi;
+function symbolInlineHtml(code){
+  const c = code.toUpperCase();
+  let o = null;
+  if(c==='DEF') o = { defensive:true };
+  else if(c==='DEF*') o = { defensive:true, defStar:true };
+  else if(c==='ATT') o = { attack:true };
+  else if(c==='DIS') o = { ranged:true };
+  else if(c==='MAG') o = { magical:true };
+  else if(c==='LIE') o = { magicLink:true };
+  else if(c==='2M') o = { twoHanded:true };
+  else if(c[0]==='U') o = { once:Number(c[1]) };
+  else if(c[0]==='T') o = { total:Number(c[1]) };
+  else if(c[0]==='R') o = { cooldown:c[1] };
+  if(!o) return null;
+  const m = cooldownHtml(o).match(/<span[^>]*title="([^"]*)"[^>]*>(<svg[\s\S]*?<\/svg>)<\/span>/);
+  return m ? `<span class="inline-sym" title="${m[1]}">${m[2]}</span>` : null;
+}
 function richTextHtml(str, theme){
   const safe = escapeHtml(str);
   return safe
     .replace(/:(INT|SEN|VIT|FOR):/gi, (m, code)=> statInlineIconHtml(STAT_CODE_TO_KEY[code.toUpperCase()], theme) || m)
     .replace(/:BAS:/gi, ()=> baseInlineIconHtml())
+    .replace(SYMBOL_CODE_RE, (m, code)=> symbolInlineHtml(code) || m)
     .replace(/:BLS:/gi, ()=> woundInlineIconHtml())
     // /b → retour à la ligne
     .replace(/[ \t]*\/b(?![\wÀ-ÿ])[ \t]*/gi, '<br>')
