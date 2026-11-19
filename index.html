@@ -2985,17 +2985,20 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
     const names = uniq([...abil.filter(a=>atkSel(a,mode) && ks.some(k=>own(a,k)!==0)).map(nm), ...((e._obj && atkSel(e,mode))?[nm(e)]:[])]);
     push(key,'atk',label,ks,names,k=>baseOf(k)+sumOwn(abil.filter(a=>atkSel(a,mode)),k)+((e._obj && atkSel(e,mode))?own(e,k):0),' ou ',false);
   };
-  const defLine = (key,label,k) => {
+  // ks : caractéristiques de la ligne ; physStar : parade physique d'un objet tenu (arme ou bouclier) → non cumulable, seul son propre bonus compte.
+  const defLine = (key,label,ks,physStar) => {
     const plainA = abil.filter(a=>a.defensive && !a.defStar), plainO = objs.filter(a=>a.defensive && !a.defStar);
-    const star = !!e.defStar && !!e.defensive;
-    const names = uniq([...plainA.filter(a=>own(a,k)!==0).map(nm), ...(e._obj?plainO.filter(a=>own(a,k)!==0).map(nm):[]), ...(star?[nm(e)]:[])]);
-    push(key,'def',label,[k],names,()=>baseOf(k)+sumOwn(plainA,k)+(e._obj?sumOwn(plainO,k):0)+(star?own(e,k):0),' ou ',star);
+    const star = !!physStar || (!!e.defStar && !!e.defensive);
+    const hit = a => ks.some(k=>own(a,k)!==0);
+    const useO = e._obj && !physStar;
+    const names = uniq([...plainA.filter(hit).map(nm), ...(useO?plainO.filter(hit).map(nm):[]), ...(star?[nm(e)]:[])]);
+    push(key,'def',label,ks,names,k=>baseOf(k)+sumOwn(plainA,k)+(useO?sumOwn(plainO,k):0)+(star?own(e,k):0),' ou ',star);
   };
   if(e.magicLink){
     // 🔮 affiche les deux lignes magiques (INT) ; les bonus de l'élément s'y appliquent selon ses symboles (✨ attaque, bouclier = défense).
     if(!e.hideLine) push('name','nm',nm(e),eKeys,[nm(e)],k=>baseOf(k)+own(e,k),' et ',false);
     atkLine('atkmagic','Attaque magique','magic',['intelligence']);
-    defLine('defmagic','Défense magique','intelligence');
+    defLine('defmagic','Défense magique',['intelligence']);
     return out;
   }
   // Ligne au nom de l'élément : ses bonus, hors symboles.
@@ -3003,14 +3006,19 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
   if(e.attack && !e.ranged && !e.magical) atkLine('atkphys','Attaque physique',undefined,['force','vitesse']);
   if(e.ranged) atkLine('atkranged','Attaque à distance','ranged',['vitesse']);
   if(e.magical) atkLine('atkmagic','Attaque magique','magic',['intelligence']);
-  // Un même objet ne donne jamais à la fois Parade physique et Esquive : une arme (attaque physique) ne fait que parer,
-  // et un objet qui apporte de la Force pare (sans esquive) ; l'esquive vient d'un objet non-arme qui n'apporte que de la Vitesse.
-  const noDodge = !!e._obj && ((e.attack && !e.ranged && !e.magical) || eKeys.includes('force'));
-  if(e.defensive) eKeys.forEach(k=>{
-    if(k==='force') defLine('parade','Parade physique',k);
-    else if(k==='vitesse'){ if(!noDodge) defLine('esquive','Esquive',k); }
-    else if(k==='intelligence') defLine('defmagic','Défense magique',k);
-  });
+  // Objet tenu (arme ou bouclier) : une seule ligne « Parade physique » (FOR ou VIT selon ses bonus), jamais d'Esquive,
+  // et non cumulable avec la parade d'un autre objet (une seule arme ou un seul bouclier à la fois).
+  // Capacités : Parade (FOR) / Esquive (VIT) séparées, comme avant. Défense magique (INT) pour tous.
+  if(e.defensive){
+    if(e._obj){
+      const pk = eKeys.filter(k=>k==='force'||k==='vitesse');
+      if(pk.length) defLine('parade','Parade physique',pk,true);
+    } else eKeys.forEach(k=>{
+      if(k==='force') defLine('parade','Parade physique',[k]);
+      else if(k==='vitesse') defLine('esquive','Esquive',[k]);
+    });
+    if(eKeys.includes('intelligence')) defLine('defmagic','Défense magique',['intelligence']);
+  }
   return out;
 }
 /* Ligne de la catégorie BASE : valeur de base d'une caractéristique (attaque physique, esquive) quand aucun élément ne la fournit. */
