@@ -3019,7 +3019,7 @@ function csListHtml(items, withEffects, theme, elList, lineFn){
     const a = normalizeAbility(it);
     const sym = cooldownHtml(a).replace(/font-size:6\.6pt/g,'font-size:8.5pt');
     const fxRaw = a.effect || it.description || '';
-    const fx = withEffects && fxRaw ? `<div class="fx">${escapeHtml(String(fxRaw).replace(/:(INT|SEN|VIT|FOR):/gi,(m,c)=>c.toUpperCase()).replace(/:\/?f:/gi,''))}</div>` : '';
+    const fx = withEffects && fxRaw ? `<div class="fx">${escapeHtml(String(fxRaw).replace(/:(INT|SEN|VIT|FOR|BAS):/gi,(m,c)=>c.toUpperCase()).replace(/:\/?f:/gi,''))}</div>` : '';
     return `<div class="item"><div class="row"><div class="rn"><b>${escapeHtml(it.name||'Sans nom')}</b><span class="sym">${sym}</span></div><div class="pts">${csPointChips(a,theme)}</div></div>${fx}${lineFn&&elList?lineFn(elList[i]):''}</div>`;
   }).join('');
 }
@@ -3434,10 +3434,15 @@ function statInlineIconHtml(stat, theme){
   const color = statColorHex(theme || getTheme(activeTab), stat);
   return `<span class="inline-stat-icon" style="background-color:${color}" title="${escapeHtml(STAT_LABELS[stat])}">${statIconGlyphHtml(icon)}</span>`;
 }
+// :BAS: → bulle grise avec étoile noire (caractéristique « de base »)
+function baseInlineIconHtml(){
+  return `<span class="inline-stat-icon" style="background-color:#9a9a9a" title="Base"><span class="icon-glyph" style="color:#000">★</span></span>`;
+}
 function richTextHtml(str, theme){
   const safe = escapeHtml(str);
   return safe
     .replace(/:(INT|SEN|VIT|FOR):/gi, (m, code)=> statInlineIconHtml(STAT_CODE_TO_KEY[code.toUpperCase()], theme) || m)
+    .replace(/:BAS:/gi, ()=> baseInlineIconHtml())
     // :f: texte :/f: → faiblesse, affichée en rouge
     .replace(/:f:([\s\S]*?):\/f:/gi, (m, t)=> `<span class="txt-weak" style="color:#C0261C;font-weight:700">${t.trim()}</span>`);
 }
