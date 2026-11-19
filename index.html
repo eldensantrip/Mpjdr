@@ -1001,6 +1001,7 @@ function normalizeAbility(a){
     effect:String(a.effect ?? '').trim(),
     defensive: a.defensive===true || a.defensive==='on' || a.defensive==='true' || a.defStar===true || a.defStar==='on' || a.defStar==='true',
     attack: a.attack===true || a.attack==='on' || a.attack==='true',
+    dodge: a.dodge===true || a.dodge==='on' || a.dodge==='true',
     defStar: a.defStar===true || a.defStar==='on' || a.defStar==='true',
     twoHanded: a.twoHanded===true || a.twoHanded==='on' || a.twoHanded==='true',
     magical: a.magical===true || a.magical==='on' || a.magical==='true',
@@ -1089,6 +1090,10 @@ function normalizeState(s){
       item.effects = !!item.effects;
     }
     if(cat === 'objects') item.rarity = normalizeRarity(item.rarity);
+    // Migration : le symbole d'esquive est distinct du bouclier. Une capacité qui avait le bouclier et un bonus de Vitesse (donc une esquive) le reçoit.
+    if(cat === 'abilities' && !('dodge' in item)){
+      item.dodge = !!((item.defensive || item.defStar) && (item.stat==='vitesse' || item.stat2==='vitesse'));
+    }
     if(cat === 'companions' || cat === 'creatures'){
       item.stats = item.stats || {};
       item.stats = {
@@ -1829,7 +1834,7 @@ function renderGrid(){
   const item=items.find(x=>x.id===window.__studioSelectedId)||items[0];
   const previewClass = STAT_CARD_TABS.includes(activeTab)||activeTab==='places' ? 'ability-preview' : (activeTab==='characters' ? 'char-preview' : (activeTab==='companions'||activeTab==='creatures' ? 'creature-preview' : ''));
   const foldersMap = new Map((state.folders[activeTab]||[]).map(f=>[f.id,f]));
-  grid.innerHTML=`<aside class="studio-list"><div class="studio-list-head">${escapeHtml(CATEGORIES[activeTab].label)} <span class="count">${items.length}${items.length!==total?` / ${total}`:''}</span></div>${items.map(x=>{const xs=avatarSrc(activeTab==='sheets'?((state.characters||[]).find(c=>c.id===x.char)||x):x);const qa=(STAT_CARD_TABS.includes(activeTab)||(activeTab==='places'&&(x.effect||Number(x.modifier))))?normalizeAbility(x):null;const folder=x.folderId?foldersMap.get(x.folderId):null;return `<div class="studio-list-item ${x.id===item.id?'active':''}" data-studio-id="${x.id}" draggable="true" style="${folder?`border-left:5px solid ${folder.color};`:''}${rarityListBackgroundStyle(activeTab,x)}"><input type="checkbox" class="studio-check" data-id="${x.id}" ${selectedIds.has(x.id)?'checked':''} onclick="event.stopPropagation()"><div class="studio-thumb">${xs?`<img src="${xs}" alt="">`:''}</div><div><div class="studio-list-name">${escapeHtml(x.name||'Sans nom')}</div>${activeTab==='sheets'?'':libraryDominantBannerHtml(activeTab,x)}<div class="studio-list-meta">${qa?`${STAT_SHORT[qa.stat]} ${qa.modifier>=0?'+':''}${qa.modifier}${qa.stat2&&qa.stat2!==qa.stat?` / ${STAT_SHORT[qa.stat2]} ${qa.modifier2>=0?'+':''}${qa.modifier2}`:''}`:(activeTab==='sheets'?csSheetMeta(x):(x.type||'Carte'))}</div>${activeTab==='objects'&&RARITIES[x.rarity]?`<div class="studio-list-meta">${RARITIES[x.rarity].label}</div>`:''}${folder?`<div class="studio-list-meta">Dossier : ${escapeHtml(folder.name)}</div>`:''}</div><button type="button" class="small ghost studio-del" data-id="${x.id}" title="Supprimer">×</button></div>`}).join('')}</aside><section class="studio-main"><div class="studio-preview-wrap">${activeTab==='sheets'?'<div class="cs-preview-box"><div class="cs-preview-host" id="cs-preview-host"></div></div>':`<div class="screen-print-card ${previewClass}">${printCard(item,false)}</div>`}</div><div class="studio-actions"><button type="button" class="primary" id="studio-edit">✏️ Modifier</button>${activeTab==='sheets'?`<button type="button" class="forest" id="studio-print-sheet" title="Imprime uniquement cette feuille">🖨️ Imprimer cette feuille</button>`:`<button type="button" class="forest" id="studio-png" title="Télécharger cette carte en PNG">🖼️ PNG</button><button type="button" class="ghost" id="studio-recenter" title="Remet l'illustration centrée, sans zoom">⌖ Recentrer</button>`}</div>${activeTab!=='sheets'&&avatarSrc(item)?'<div class="studio-pan-hint">Illustration : glisse pour la déplacer, molette pour zoomer, double-clic pour recentrer.</div>':''}</section>`;
+  grid.innerHTML=`<aside class="studio-list"><div class="studio-list-head">${escapeHtml(CATEGORIES[activeTab].label)} <span class="count">${items.length}${items.length!==total?` / ${total}`:''}</span></div>${items.map(x=>{const xs=avatarSrc(activeTab==='sheets'?((state.characters||[]).find(c=>c.id===x.char)||x):x);const qa=(STAT_CARD_TABS.includes(activeTab)||(activeTab==='places'&&(x.effect||Number(x.modifier))))?normalizeAbility(x):null;const folder=x.folderId?foldersMap.get(x.folderId):null;return `<div class="studio-list-item ${x.id===item.id?'active':''}" data-studio-id="${x.id}" draggable="true" style="${folder?`border-left:5px solid ${folder.color};`:''}${rarityListBackgroundStyle(activeTab,x)}"><input type="checkbox" class="studio-check" data-id="${x.id}" ${selectedIds.has(x.id)?'checked':''} onclick="event.stopPropagation()"><div class="studio-thumb">${xs?`<img src="${xs}" alt="">`:''}</div><div><div class="studio-list-name">${escapeHtml(x.name||'Sans nom')}</div>${activeTab==='sheets'?'':libraryDominantBannerHtml(activeTab,x)}<div class="studio-list-meta">${qa?`${STAT_SHORT[qa.stat]} ${qa.modifier>=0?'+':''}${qa.modifier}${qa.stat2&&qa.stat2!==qa.stat?` / ${STAT_SHORT[qa.stat2]} ${qa.modifier2>=0?'+':''}${qa.modifier2}`:''}`:(activeTab==='sheets'?csSheetMeta(x):(x.type||'Carte'))}</div>${activeTab==='objects'&&RARITIES[x.rarity]?`<div class="studio-list-meta">${RARITIES[x.rarity].label}</div>`:''}${folder?`<div class="studio-list-meta">Dossier : ${escapeHtml(folder.name)}</div>`:''}</div><button type="button" class="small ghost studio-del" data-id="${x.id}" title="Supprimer">×</button></div>`}).join('')}</aside><section class="studio-main"><div class="studio-preview-wrap">${activeTab==='sheets'?'<div class="cs-preview-box"><div class="cs-preview-host" id="cs-preview-host"></div></div>':`<div class="screen-print-card ${previewClass}">${printCard(item,false)}</div>`}</div><div class="studio-actions"><button type="button" class="primary" id="studio-edit">✏️ Modifier</button>${activeTab==='sheets'?`<button type="button" class="forest" id="studio-print-sheet" title="Imprime uniquement cette feuille">🖨️ Imprimer cette feuille</button>`:`<button type="button" class="forest" id="studio-png" title="Télécharger cette carte en PNG">🖼️ PNG</button><button type="button" class="ghost" id="studio-recenter" title="Remet l'illustration centrée, sans zoom">⌖ Recentrer</button>`}</div>${activeTab!=='sheets'&&avatarSrc(item)?'<div class="studio-pan-hint">Illustration : glisse pour la déplacer, molette pour zoomer, double-clic pour recentrer.</div>':''}${activeTab==='sheets'?'<div class="studio-pan-hint">Illustrations de la feuille : glisse pour les déplacer, molette pour zoomer, double-clic pour recentrer.</div>':''}</section>`;
   const newListEl = grid.querySelector('.studio-list');
   if(newListEl){
     newListEl.scrollTop = prevScrollTop;
@@ -2204,6 +2209,7 @@ function buildFormFields(item){
     ${(activeTab==='abilities'||activeTab==='objects')?`<div class="field"><label class="check"><input type="checkbox" name="ability-showline" ${a.hideLine?'':'checked'}> 📝 Afficher sa ligne de bonus sur la feuille</label><small>Sur la feuille de personnage, ajoute une ligne à son nom qui applique ses bonus, hors symboles. Décoche pour ne garder que ses lignes d’attaque, de parade, etc.</small></div>`:''}
     ${(activeTab==='abilities'||activeTab==='objects')?`<div class="field"><label class="check"><input type="checkbox" name="ability-ranged" ${a.ranged?'checked':''}> 🏹 Attaque à distance</label><small>Ajoute un symbole d’arc. Sur la feuille de personnage, la ligne d’attaque à distance (VIT) ne s’affiche que si au moins un élément choisi porte ce symbole avec un bonus en vitesse.</small></div>`:''}
     ${activeTab==='traps'?'':`<div class="field"><label>🛡 Bouclier</label><select name="ability-shield"><option value="">Aucun</option><option value="plain" ${a.defensive&&!a.defStar?'selected':''}>Utilisable en défense</option><option value="star" ${a.defStar?'selected':''}>Avec astérisque (non cumulable)</option></select><small>Ajoute un symbole de bouclier à droite du titre (avec un astérisque pour la variante « non cumulable » : sur la feuille de personnage, seul le meilleur bonus parmi les défenses à astérisque est compté pour chaque caractéristique) et une nuance bleutée sur le cadre. Se combine avec l’épée.</small></div>`}
+    ${activeTab==='abilities'?`<div class="field"><label class="check"><input type="checkbox" name="ability-dodge" ${a.dodge?'checked':''}> 💨 Esquive</label><small>Ajoute un symbole d’esquive : sur la feuille de personnage, la capacité apporte alors sa Vitesse à la ligne « Esquive » (le bouclier, lui, ne concerne que la parade).</small></div>`:''}
     <div class="field">${cooldownOnceFieldsHtml('ability-', a)}</div>
     <div class="field"><label>${effectLabel}</label><textarea name="ability-effect" maxlength="500" rows="6" placeholder="${effectPlaceholder}">${escapeHtml(a.effect||item.description||'')}</textarea><div class="field-hint" style="font-size:11.5px;opacity:.7;margin-top:3px;">Astuce : tape <b>:FOR:</b>, <b>:INT:</b>, <b>:SEN:</b> ou <b>:VIT:</b> pour insérer le symbole de la caractéristique. Entoure un texte de <b>:f:</b> … <b>:/f:</b> pour le mettre en rouge (faiblesse).</div></div>`;
   }
@@ -2449,6 +2455,7 @@ formEl.addEventListener('submit',async(e)=>{
     if(activeTab!=='traps' && (shSel==='plain'||shSel==='star')) item.defensive=true; else delete item.defensive;
     if(activeTab!=='traps' && shSel==='star') item.defStar=true; else delete item.defStar;
     if(fd.get('ability-attack')) item.attack=true; else delete item.attack;
+    if(activeTab==='abilities') item.dodge = !!fd.get('ability-dodge');
     if(activeTab==='objects' && fd.get('ability-twohanded')) item.twoHanded=true; else delete item.twoHanded;
     if((activeTab==='abilities'||activeTab==='objects') && fd.get('ability-magical')) item.magical=true; else delete item.magical;
     if((activeTab==='abilities'||activeTab==='objects') && fd.get('ability-magiclink')) item.magicLink=true; else delete item.magicLink;
@@ -2885,17 +2892,97 @@ async function renderSheetPreview(item){
   const root = host.shadowRoot || host.attachShadow({mode:'open'});
   root.innerHTML = `<style>${CS_SHEET_CSS}
     :host{ display:block; } .cs-wrap{ font-family:system-ui,-apple-system,'Segoe UI',Roboto,sans-serif; color:#2E2115; -webkit-print-color-adjust:exact; print-color-adjust:exact; }
-    .sheet{ background:#fffdf6; } .rm{ display:none !important; }</style><div class="cs-wrap">${html}</div>`;
+    .sheet{ background:#fffdf6; } .rm{ display:none !important; }
+    .can-pan{ cursor:grab; touch-action:none; } .can-pan.panning{ cursor:grabbing; } .can-pan img{ user-select:none; -webkit-user-drag:none; }</style><div class="cs-wrap">${html}</div>`;
+  const ro = document.body.classList.contains('ro'); // mode lecture seule : pas de cadrage
+  if(!ro){
+    const ch = (state.characters||[]).find(x=>x.id===item.char);
+    const pet = item.pet ? (state.companions||[]).find(x=>x.id===item.pet) : null;
+    wireSheetPanZoom(item, root.querySelector('.art'), ch, 'artView');
+    if(pet) wireSheetPanZoom(item, root.querySelector('.petimg'), pet, 'petView');
+  }
+}
+/* Cadrage des illustrations de la feuille (personnage = item.artView, compagnon = item.petView) : glisser pour déplacer,
+   molette pour zoomer (×1 à ×4), double-clic pour recentrer. Même logique que pour les cartes ; le cadrage est propre à la feuille. */
+function wireSheetPanZoom(sheet, frame, src, key){
+  if(!frame || !src) return;
+  let img = frame.querySelector('img'); if(!img) return;
+  frame.classList.add('can-pan');
+  frame.title = 'Glisse pour déplacer · molette pour zoomer · double-clic pour recentrer';
+  const prev = sanitizeAvatarView(sheet[key]===undefined ? src.avatarView : sheet[key]);
+  let view = prev ? { zoom:prev.zoom, x:prev.x, y:prev.y } : { zoom:1, x:0, y:0 };
+  let ar = prev ? prev.ar : 0;
+  const ensureAr = ()=>{ if(!(ar>0) && img && img.naturalWidth>0) ar = img.naturalWidth/img.naturalHeight; return ar>0; };
+  const geom = ()=>{
+    const r = frame.getBoundingClientRect(), fw=r.width, fh=r.height;
+    const bw = Math.max(fw, fh*ar), bh = Math.max(fh, fw/ar);
+    return { r, fw, fh, limX:((bw*view.zoom - fw)/2)/fw*100, limY:((bh*view.zoom - fh)/2)/fh*100 };
+  };
+  const clamp = ()=>{
+    view.zoom = Math.max(1, Math.min(AVATAR_ZOOM_MAX, view.zoom));
+    const g = geom();
+    view.x = Math.max(-g.limX, Math.min(g.limX, view.x));
+    view.y = Math.max(-g.limY, Math.min(g.limY, view.y));
+  };
+  const apply = ()=>{
+    const v = sanitizeAvatarView({ ...view, ar });
+    frame.innerHTML = csAvatarHtml(src, img.src, v || false);
+    img = frame.querySelector('img');
+  };
+  let saveTimer = null;
+  const persist = ()=>{
+    sheet[key] = sanitizeAvatarView({ ...view, ar }) || false;
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(async ()=>{ try{ await saveState(); }catch(e){ console.warn('Sauvegarde du cadrage impossible', e); } }, 250);
+  };
+  let drag = null;
+  frame.addEventListener('pointerdown', e=>{
+    if(e.button!==0 || !ensureAr()) return;
+    const g = geom();
+    drag = { px:e.clientX, py:e.clientY, x:view.x, y:view.y, w:g.fw, h:g.fh };
+    frame.classList.add('panning');
+    try{ frame.setPointerCapture(e.pointerId); }catch(_){}
+    e.preventDefault();
+  });
+  frame.addEventListener('pointermove', e=>{
+    if(!drag) return;
+    view.x = drag.x + (e.clientX-drag.px)/drag.w*100;
+    view.y = drag.y + (e.clientY-drag.py)/drag.h*100;
+    clamp(); apply();
+  });
+  const endDrag = e=>{
+    if(!drag) return;
+    drag = null; frame.classList.remove('panning');
+    try{ frame.releasePointerCapture(e.pointerId); }catch(_){}
+    persist();
+  };
+  frame.addEventListener('pointerup', endDrag);
+  frame.addEventListener('pointercancel', endDrag);
+  frame.addEventListener('wheel', e=>{
+    e.preventDefault();
+    if(!ensureAr()) return;
+    const g = geom();
+    const px = ((e.clientX-g.r.left)/g.fw - .5)*100, py = ((e.clientY-g.r.top)/g.fh - .5)*100;
+    const oldZ = view.zoom;
+    const newZ = Math.max(1, Math.min(AVATAR_ZOOM_MAX, oldZ*Math.exp(-e.deltaY*0.0015)));
+    if(newZ===oldZ) return;
+    view.x = px - newZ*(px-view.x)/oldZ;
+    view.y = py - newZ*(py-view.y)/oldZ;
+    view.zoom = newZ;
+    clamp(); apply(); persist();
+  }, { passive:false });
+  frame.addEventListener('dblclick', e=>{ e.preventDefault(); view = { zoom:1, x:0, y:0 }; if(ensureAr()) apply(); persist(); });
 }
 async function csImg(item){
   const src = item ? avatarSrc(item) : ''; if(!src) return '';
   if(/^data:/.test(src)) return src;
   try{ return await blobUrlToDataUrl(src); }catch(e){ return ''; }
 }
-function csAvatarHtml(item, src){
+function csAvatarHtml(item, src, ov){
   if(!src) return '<div class="noimg">🖼️</div>';
   const op = Math.max(0, Math.min(1, Number(item.avatarOpacity ?? 1)));
-  const v = sanitizeAvatarView(item.avatarView);
+  // ov : cadrage propre à la feuille (objet) ; false = recentré explicitement ; undefined = cadrage de la carte du personnage / compagnon.
+  const v = sanitizeAvatarView(ov===undefined ? item.avatarView : ov);
   if(v) return `<span style="position:absolute;inset:0;display:block;overflow:hidden;container-type:size;"><img src="${src}" alt="" style="opacity:${op};display:block;${avatarViewImgStyle(v)}"></span>`;
   return `<img src="${src}" alt="" style="opacity:${op};object-fit:cover;width:100%;height:100%;display:block;">`;
 }
@@ -2988,11 +3075,13 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
     push(key,'atk',label,ks,names,k=>baseOf(k)+sumOwn(abil.filter(a=>atkSel(a,mode)),k)+((e._obj && atkSel(e,mode))?own(e,k):0),' ou ',false);
   };
   // ks : caractéristiques de la ligne ; physStar : parade physique d'un objet tenu (arme ou bouclier) → non cumulable, seul son propre bonus compte.
-  const defLine = (key,label,ks,physStar) => {
-    const plainA = abil.filter(a=>a.defensive && !a.defStar), plainO = objs.filter(a=>a.defensive && !a.defStar);
-    const star = !!physStar || (!!e.defStar && !!e.defensive);
+  // flag : 'defensive' (parade / défense magique) ou 'dodge' (esquive : seules les capacités à symbole d'esquive y contribuent).
+  const defLine = (key,label,ks,physStar,flag) => {
+    const dodge = flag==='dodge';
+    const plainA = abil.filter(a=> dodge ? a.dodge : (a.defensive && !a.defStar)), plainO = dodge ? [] : objs.filter(a=>a.defensive && !a.defStar);
+    const star = !dodge && (!!physStar || (!!e.defStar && !!e.defensive));
     const hit = a => ks.some(k=>own(a,k)!==0);
-    const useO = e._obj && !physStar;
+    const useO = e._obj && !physStar && !dodge;
     const names = uniq([...plainA.filter(hit).map(nm), ...(useO?plainO.filter(hit).map(nm):[]), ...(star?[nm(e)]:[])]);
     push(key,'def',label,ks,names,k=>baseOf(k)+sumOwn(plainA,k)+(useO?sumOwn(plainO,k):0)+(star?own(e,k):0),' ou ',star);
   };
@@ -3012,19 +3101,15 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
   // et non cumulable avec la parade d'un autre objet (une seule arme ou un seul bouclier à la fois).
   // Capacités : Parade (FOR) / Esquive (VIT) séparées, comme avant. Défense magique (INT) pour tous.
   if(e.defensive){
-    if(e._obj){
-      let pk = eKeys.filter(k=>k==='force'||k==='vitesse');
-      if(!pk.length && !eKeys.includes('intelligence')) pk = ['force']; // symbole de défense sans bonus : parade de base
-      if(pk.length) defLine('parade','Parade physique',pk,true);
-    } else {
-      eKeys.forEach(k=>{
-        if(k==='force') defLine('parade','Parade physique',[k]);
-        else if(k==='vitesse') defLine('esquive','Esquive',[k]);
-      });
-      if(!eKeys.length) defLine('parade','Parade physique',['force']); // symbole de défense sans bonus : parade de base
-    }
+    // Bouclier / arme : une seule ligne « Parade physique » (FOR ou VIT selon les bonus), jamais d'Esquive.
+    // Objet : non cumulable avec la parade d'un autre objet (une seule arme ou un seul bouclier à la fois).
+    let pk = eKeys.filter(k=>k==='force'||k==='vitesse');
+    if(!pk.length && !eKeys.includes('intelligence')) pk = ['force']; // symbole de défense sans bonus : parade de base
+    if(pk.length) defLine('parade','Parade physique',pk,!!e._obj);
     if(eKeys.includes('intelligence')) defLine('defmagic','Défense magique',['intelligence']);
   }
+  // Symbole d'esquive (capacités) : ligne « Esquive » en VIT.
+  if(e.dodge && !e._obj) defLine('esquive','Esquive',['vitesse'],false,'dodge');
   return out;
 }
 /* Ligne de la catégorie BASE : valeur de base d'une caractéristique (attaque physique, esquive) quand aucun élément ne la fournit. */
@@ -3037,7 +3122,7 @@ function csListHtml(items, withEffects, theme, elList, lineFn){
     const a = normalizeAbility(it);
     const sym = cooldownHtml(a).replace(/font-size:6\.6pt/g,'font-size:8.5pt');
     const fxRaw = a.effect || it.description || '';
-    const fx = withEffects && fxRaw ? `<div class="fx">${escapeHtml(String(fxRaw).replace(/:(INT|SEN|VIT|FOR|BAS|BLS|DEF\*?|ATT|DIS|MAG|LIE|2M|[UTR][1-9]):/gi,(m,c)=>c.toUpperCase()).replace(/:\/?f:/gi,'').replace(/[ \t]*\/b(?![\wÀ-ÿ])[ \t]*/gi,' '))}</div>` : '';
+    const fx = withEffects && fxRaw ? `<div class="fx">${escapeHtml(String(fxRaw).replace(/:(INT|SEN|VIT|FOR|BAS|BLS|DEF\*?|ESQ|ATT|DIS|MAG|LIE|2M|[UTR][1-9]):/gi,(m,c)=>c.toUpperCase()).replace(/:\/?f:/gi,'').replace(/[ \t]*\/b(?![\wÀ-ÿ])[ \t]*/gi,' '))}</div>` : '';
     return `<div class="item"><div class="row"><div class="rn"><b>${escapeHtml(it.name||'Sans nom')}</b><span class="sym">${sym}</span></div><div class="pts">${csPointChips(a,theme)}</div></div>${fx}${lineFn&&elList?lineFn(elList[i]):''}</div>`;
   }).join('');
 }
@@ -3085,8 +3170,8 @@ async function csSheetHtml(cfg, idx){
     <header class="hd"><h1 style="font-size:${nameSize}pt">${escapeHtml(ch.name||'Sans nom')}</h1>${ch.className?`<span class="cls">${escapeHtml(ch.className)}</span>`:''}</header>
     ${conflict?`<div class="warn noprint">⚠ ${escapeHtml(conflict)}</div>`:''}
     <div class="artwrap" style="height:${artH}mm;margin-bottom:${pet?9:0}mm">
-      <div class="art">${csAvatarHtml(ch, chImg)}</div>
-      ${pet?`<div class="pet"><div class="petimg">${csAvatarHtml(pet, petImg)}</div><div class="petname">${escapeHtml(pet.name||'')}</div></div>`:''}
+      <div class="art">${csAvatarHtml(ch, chImg, cfg.artView)}</div>
+      ${pet?`<div class="pet"><div class="petimg">${csAvatarHtml(pet, petImg, cfg.petView)}</div><div class="petname">${escapeHtml(pet.name||'')}</div></div>`:''}
     </div>
     <div class="stats">${cols}</div>
     ${(baseLines.length||nCommon)?`<div class="sec">Base</div><div class="list">${baseLines.length?`<div class="item"><div class="effs">${baseLines.join('')}</div></div>`:''}${nCommon?csListHtml(objs.slice(0,nCommon), cfg.effects, theme, els.slice(abil.length, abil.length+nCommon), lineFn):''}</div>`:''}
@@ -3465,14 +3550,15 @@ function woundInlineIconHtml(){
   return `<span class="inline-stat-icon" style="background-color:#c0261c" title="Blessure"><svg viewBox="0 0 24 24" style="width:64%;height:64%;display:block" aria-hidden="true"><path fill="#fff" d="M12 2.5C12 2.5 5.5 10 5.5 14.6a6.5 6.5 0 0 0 13 0C18.5 10 12 2.5 12 2.5z"/></svg></span>`;
 }
 /* Raccourcis des symboles de capacité/objet (mêmes dessins que ceux affichés à droite du titre) :
-   :DEF: bouclier · :DEF*: bouclier non cumulable · :ATT: épée · :DIS: attaque à distance · :MAG: sort · :LIE: liée à la magie · :2M: deux mains
+   :DEF: bouclier · :DEF*: bouclier non cumulable · :ESQ: esquive · :ATT: épée · :DIS: attaque à distance · :MAG: sort · :LIE: liée à la magie · :2M: deux mains
    :U1:…:U9: usages par rencontre · :T1:…:T9: usages au total · :R1:…:R9: rechargement en tours */
-const SYMBOL_CODE_RE = /:(DEF\*?|ATT|DIS|MAG|LIE|2M|[UTR][1-9]):/gi;
+const SYMBOL_CODE_RE = /:(DEF\*?|ESQ|ATT|DIS|MAG|LIE|2M|[UTR][1-9]):/gi;
 function symbolInlineHtml(code){
   const c = code.toUpperCase();
   let o = null;
   if(c==='DEF') o = { defensive:true };
   else if(c==='DEF*') o = { defensive:true, defStar:true };
+  else if(c==='ESQ') o = { dodge:true };
   else if(c==='ATT') o = { attack:true };
   else if(c==='DIS') o = { ranged:true };
   else if(c==='MAG') o = { magical:true };
@@ -3608,6 +3694,9 @@ function cooldownHtml(x){
   const sws = () => h ? swsNext : swsFirst;
   if(x.defensive){
     h += `<span class="p-def-icon" title="${x.defStar?'Utilisable en défense (non cumulable : deux objets identiques ne s’additionnent pas)':'Utilisable en défense'}" style="${sws()}"><svg viewBox="0 0 ${x.defStar?28:24} 24" width="${x.defStar?'1.69em':'1.45em'}" height="1.45em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M12 2.6 20 5.8v6.2c0 4.9-3.3 8.2-8 10-4.7-1.8-8-5.1-8-10V5.8z" fill="currentColor" stroke="currentColor" stroke-width="1.8" stroke-linejoin="round"/><path d="M12 6.6 16.6 8.4v3.8c0 3-2 5.2-4.6 6.5-2.6-1.3-4.6-3.5-4.6-6.5V8.4z" fill="none" stroke="#fff" stroke-width="1.6" stroke-linejoin="round"/>${x.defStar?'<g stroke="currentColor" stroke-width="1.7" stroke-linecap="round"><path d="M24.6 2.4v6.2M21.9 4l5.4 3.2M27.3 4l-5.4 3.2"/></g>':''}</svg></span>`;
+  }
+  if(x.dodge){
+    h += `<span class="p-dodge-icon" title="Esquive" style="${sws()}"><svg viewBox="0 0 24 24" width="1.4em" height="1.4em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M3 7.5h8.5a3.2 3.2 0 1 1-2.6 5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M3 12.5h5.5M3 17.5h9.5a3.2 3.2 0 1 0-2.6-5" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round"/><path d="M17.2 14.6 14.3 11.9 11.9 15" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></span>`;
   }
   if(x.attack){
     h += `<span class="p-atk-icon" title="Attaque : inflige des dégâts" style="${sws()}"><svg viewBox="0 0 24 24" width="1.45em" height="1.45em" style="display:inline-block;vertical-align:baseline;margin:-.3em 0" aria-hidden="true"><path d="M7.9 13.9 17.9 3.9 21.7 2.3 20.1 6.1 10.1 16.1Z" fill="currentColor" stroke="currentColor" stroke-width=".8" stroke-linejoin="round"/><path d="M10.6 13.4 18 6" fill="none" stroke="#fff" stroke-width=".9" stroke-linecap="round"/><path d="M5.5 12.5 11.5 18.5" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><path d="M8.5 15.5 4.6 19.4" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round"/><circle cx="3.7" cy="20.3" r="1.6" fill="currentColor"/></svg></span>`;
@@ -4019,6 +4108,7 @@ function buildTextExport(){
         const a = normalizeAbility(item);
         lines.push(`Caractéristiques : ${abilityMods(a)}`);
         if(cat==='abilities' || cat==='objects') lines.push(`Utilisable en défense : ${a.defensive?(a.defStar?'oui (non cumulable)':'oui'):'non'}`);
+        if(cat==='abilities') lines.push(`Esquive : ${a.dodge?'oui':'non'}`);
         lines.push(`Attaque : ${a.attack?'oui':'non'}`);
         if(cat==='objects') lines.push(`Arme à deux mains : ${a.twoHanded?'oui':'non'}`);
         if(cat==='abilities'||cat==='objects') lines.push(`Sort (attaque magique) : ${a.magical?'oui':'non'}`, `Liée à la magie : ${a.magicLink?'oui':'non'}`);
