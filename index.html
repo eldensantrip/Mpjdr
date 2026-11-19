@@ -3028,7 +3028,11 @@ async function csSheetHtml(cfg, idx){
   const ch = (state.characters||[]).find(x=>x.id===cfg.char); if(!ch) return null;
   const pet = cfg.pet ? (state.companions||[]).find(x=>x.id===cfg.pet) : null;
   const abil = (cfg.abilities||[]).map(id=>(state.abilities||[]).find(x=>x.id===id)).filter(Boolean);
-  const objs = (cfg.objects||[]).map(id=>(state.objects||[]).find(x=>x.id===id)).filter(Boolean);
+  const objsAll = (cfg.objects||[]).map(id=>(state.objects||[]).find(x=>x.id===id)).filter(Boolean);
+  // Les objets de rareté « Commun » vont dans la catégorie BASE (en premier dans la liste), les autres restent dans OBJETS MAGIQUES.
+  const isCommonObj = o => o.rarity==='commun';
+  const objs = [...objsAll.filter(isCommonObj), ...objsAll.filter(o=>!isCommonObj(o))];
+  const nCommon = objsAll.filter(isCommonObj).length;
   const objEls = objs.map(x=>({...normalizeAbility(x), name:x.name, _obj:true}));
   const els = [...abil.map(x=>({...normalizeAbility(x), name:x.name, _obj:false})), ...objEls];
   const conflict = csTwoHandConflict(objEls);
@@ -3068,10 +3072,10 @@ async function csSheetHtml(cfg, idx){
       ${pet?`<div class="pet"><div class="petimg">${csAvatarHtml(pet, petImg)}</div><div class="petname">${escapeHtml(pet.name||'')}</div></div>`:''}
     </div>
     <div class="stats">${cols}</div>
-    ${baseLines.length?`<div class="sec">Base</div><div class="list"><div class="item"><div class="effs">${baseLines.join('')}</div></div></div>`:''}
+    ${(baseLines.length||nCommon)?`<div class="sec">Base</div><div class="list">${baseLines.length?`<div class="item"><div class="effs">${baseLines.join('')}</div></div>`:''}${nCommon?csListHtml(objs.slice(0,nCommon), cfg.effects, theme, els.slice(abil.length, abil.length+nCommon), lineFn):''}</div>`:''}
     <div class="sec">Capacités</div>
     <div class="list">${abil.length ? csListHtml(abil, cfg.effects, theme, els.slice(0,abil.length), lineFn) : '<div class="none">—</div>'}</div>
-    ${objs.length ? `<div class="sec">Objets magiques</div><div class="list">${csListHtml(objs, cfg.effects, theme, els.slice(abil.length), lineFn)}</div>` : ''}
+    ${objs.length>nCommon ? `<div class="sec">Objets magiques</div><div class="list">${csListHtml(objs.slice(nCommon), cfg.effects, theme, els.slice(abil.length+nCommon), lineFn)}</div>` : ''}
     ${ctx.star?'<div class="fn">(*) non cumulable : on ne pare qu’avec une seule arme ou un seul bouclier à la fois.</div>':''}
   </section>`;
 }
