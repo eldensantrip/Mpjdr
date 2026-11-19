@@ -2981,7 +2981,9 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
     out.push({ key, ks, html:`<div class="eff ${kind}"><span class="el">${escapeHtml(label)}${star?' *':''}</span><span class="ef">${f}</span><span class="pills">${pills}</span></div>` });
   };
   const atkLine = (key,label,mode,allowed) => {
-    const ks = e.magicLink ? allowed : eKeys.filter(k=>allowed.includes(k));
+    const kf = eKeys.filter(k=>allowed.includes(k));
+    // Un symbole d'attaque donne sa ligne même si le bonus est 0 (ou porte sur une autre caractéristique) : on affiche alors toutes les caractéristiques possibles.
+    const ks = (e.magicLink || !kf.length) ? allowed : kf;
     const names = uniq([...abil.filter(a=>atkSel(a,mode) && ks.some(k=>own(a,k)!==0)).map(nm), ...((e._obj && atkSel(e,mode))?[nm(e)]:[])]);
     push(key,'atk',label,ks,names,k=>baseOf(k)+sumOwn(abil.filter(a=>atkSel(a,mode)),k)+((e._obj && atkSel(e,mode))?own(e,k):0),' ou ',false);
   };
@@ -3011,12 +3013,16 @@ function csEffectLines(e, elsAll, ch, ctx, theme){
   // Capacités : Parade (FOR) / Esquive (VIT) séparées, comme avant. Défense magique (INT) pour tous.
   if(e.defensive){
     if(e._obj){
-      const pk = eKeys.filter(k=>k==='force'||k==='vitesse');
+      let pk = eKeys.filter(k=>k==='force'||k==='vitesse');
+      if(!pk.length && !eKeys.includes('intelligence')) pk = ['force']; // symbole de défense sans bonus : parade de base
       if(pk.length) defLine('parade','Parade physique',pk,true);
-    } else eKeys.forEach(k=>{
-      if(k==='force') defLine('parade','Parade physique',[k]);
-      else if(k==='vitesse') defLine('esquive','Esquive',[k]);
-    });
+    } else {
+      eKeys.forEach(k=>{
+        if(k==='force') defLine('parade','Parade physique',[k]);
+        else if(k==='vitesse') defLine('esquive','Esquive',[k]);
+      });
+      if(!eKeys.length) defLine('parade','Parade physique',['force']); // symbole de défense sans bonus : parade de base
+    }
     if(eKeys.includes('intelligence')) defLine('defmagic','Défense magique',['intelligence']);
   }
   return out;
